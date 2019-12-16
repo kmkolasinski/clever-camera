@@ -121,6 +121,8 @@ def load_history_widgets():
     widgets = []
     folders = natsorted(SNAPSHOTS_DIRECTORY.glob("*"))
     for folder in folders:
+        if not folder.is_dir():
+           continue
         with (Path(folder) / "history.json").open("r") as file:
             day_history_list = json.load(file)[::-1]
         for day_config in day_history_list:
