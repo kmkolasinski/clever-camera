@@ -56,7 +56,7 @@ def append_snapshots_history(
     print("History updated")
 
 
-class HistoryRecordWidget(gui.Widget):
+class HistoryRecordWidget(gui.Container):
     def __init__(self, *args):
         super(HistoryRecordWidget, self).__init__(*args)
 
@@ -85,15 +85,15 @@ class HistoryRecordWidget(gui.Widget):
         return widget
 
 
-class HistoryWidget(gui.Widget):
+class HistoryWidget(gui.Container):
     def __init__(self, *args):
         super(HistoryWidget, self).__init__(*args)
-
-        self.container = gui.Widget()
+        self.css_width = "100%"
+        self.container = gui.Container()
         self.container.style.update(
             {"display": "block", "overflow": "auto", "margin": "5px"}
         )
-        self.container.set_layout_orientation(gui.Widget.LAYOUT_VERTICAL)
+        self.container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.historyList = gui.ListView()
         self.container.append(self.historyList)
         self.reloadHistoryButton = CustomButton("Reload")
@@ -101,8 +101,6 @@ class HistoryWidget(gui.Widget):
         hlayout = gui.HBox()
         hlayout.append(self.reloadHistoryButton)
 
-        self.append(Header("History"))
-        self.append(HorizontalLine())
         self.append(hlayout)
         self.append(Header("History"))
         self.append(HorizontalLine())

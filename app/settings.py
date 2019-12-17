@@ -10,7 +10,7 @@ from gui import CustomButton
 CONFIG_PATH = Path("resources/config.yaml")
 
 
-class Settings(gui.Widget):
+class Settings(gui.Container):
     def __init__(self, app: App, *args):
         super(Settings, self).__init__(*args)
         self.app_instance = app

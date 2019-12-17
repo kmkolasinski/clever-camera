@@ -9,7 +9,7 @@ import remi.gui as gui
 from PIL import ImageDraw, Image
 
 from camera_client import CameraClient
-from gui import CustomFormWidget, CustomButton, HorizontalLine, PILImage, SuperImage
+from gui import CustomFormWidget, CustomButton, HorizontalLine, PILImage, PILImageWidget
 from history_widget import append_snapshots_history
 from tflite_classifier_predictor import TFClassifierPredictor
 
@@ -28,7 +28,7 @@ CHECK_PERIOD = "check_period"
 CLASS_FILTER = "class_filter"
 
 
-class CameraWidget(gui.Widget):
+class CameraWidget(gui.Container):
     def __init__(self, app_instance, *args):
         super(CameraWidget, self).__init__(*args)
         self.cameraClient: Optional[CameraClient] = None
@@ -68,7 +68,7 @@ class CameraWidget(gui.Widget):
         self.settings.style["width"] = "80%"
 
         self.defaultCameraImage = Image.open(CAMERA_DEFAULT_IMAGE)
-        self.imageWidget = SuperImage(app_instance)
+        self.imageWidget = PILImageWidget(app_instance)
         self.imageWidget.load(CAMERA_DEFAULT_IMAGE, use_js=False)
         self.imageWidget.style["width"] = "50%"
         self.infoLabel = gui.Label("Info: ...")

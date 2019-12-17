@@ -37,15 +37,15 @@ class HorizontalLine(PlainHTML):
         super().__init__(html="<hr>", *arg, **kwargs)
 
 
-class CustomFormWidget(gui.Widget):
+class CustomFormWidget(gui.Container):
     def __init__(self, *args):
         super(CustomFormWidget, self).__init__(*args)
         self.inputs = {}
-        self.container = gui.Widget()
+        self.container = gui.Container()
         self.container.style.update(
             {"display": "block", "overflow": "auto", "margin": "5px"}
         )
-        self.container.set_layout_orientation(gui.Widget.LAYOUT_VERTICAL)
+        self.container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.append(self.container)
 
     def add_field_with_label(self, key: str, label_description: str, field: gui.Widget):
@@ -113,13 +113,13 @@ class CustomFormWidget(gui.Widget):
         raise NotImplementedError(f"Setter for {field} is not implemented.")
 
 
-class ConfigInfoWidget(gui.Widget):
+class ConfigInfoWidget(gui.Container):
     def __init__(self, app: App, parent: gui.Widget, html_text: str, *args):
         super(ConfigInfoWidget, self).__init__(*args)
         self.app = app
         self.parent = parent
         self.style.update({"display": "block", "overflow": "auto", "margin": "5px"})
-        self.set_layout_orientation(gui.Widget.LAYOUT_VERTICAL)
+        self.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.back_button = CustomButton("Back")
         self.back_button.onclick.do(self.exit)
         self.append(self.back_button)
@@ -137,13 +137,13 @@ class ConfigInfoWidget(gui.Widget):
         self.app.set_root_widget(self.parent)
 
 
-class WarningBoxWidget(gui.Widget):
+class WarningBoxWidget(gui.Container):
     def __init__(self, app: App, parent: gui.Widget, title: str, msg: str, *args):
         super(WarningBoxWidget, self).__init__(*args)
         self.app = app
         self.parent = parent
         self.style.update({"display": "block", "overflow": "auto", "margin": "5px"})
-        self.set_layout_orientation(gui.Widget.LAYOUT_VERTICAL)
+        self.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.back_button = CustomButton("Back")
         self.back_button.onclick.do(self.exit)
         self.append(self.back_button)
@@ -160,7 +160,7 @@ class WarningBoxWidget(gui.Widget):
         self.app.set_root_widget(self)
 
 
-class YesNoMessageBoxWidget(gui.Widget):
+class YesNoMessageBoxWidget(gui.Container):
     def __init__(
         self, app: App, parent: gui.Widget, title: str, msg: str, accept_fn, *args
     ):
@@ -169,7 +169,7 @@ class YesNoMessageBoxWidget(gui.Widget):
         self.parent = parent
         self.accept_fn = accept_fn
         self.style.update({"display": "block", "overflow": "auto", "margin": "5px"})
-        self.set_layout_orientation(gui.Widget.LAYOUT_VERTICAL)
+        self.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.ok_button = CustomButton("Yes")
         self.ok_button.onclick.do(self.accept)
         self.no_button = CustomButton("No")
@@ -232,18 +232,16 @@ class PILImageViewerWidget(gui.Image):
         return [self._buf.read(), headers]
 
 
-class SuperImage(gui.Image):
+class PILImageWidget(gui.Image):
     def __init__(self, app_instance: App, file_path_name=None, **kwargs):
         """
-        This new app_instance variable is causing lots of problems.  I do not know the value of the App
-        when I create this image.
         :param app_instance:
         :param file_path_name:
         :param kwargs:
         """
         # self.app_instance = app_instance
         image = file_path_name
-        super(SuperImage, self).__init__(image, **kwargs)
+        super(PILImageWidget, self).__init__(image, **kwargs)
         self.app_instance = app_instance
         self.imagedata = None
         self.mimetype = None
