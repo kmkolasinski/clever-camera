@@ -9,11 +9,12 @@ import remi.gui as gui
 from PIL import ImageDraw, Image
 
 from camera_client import CameraClient
+from config import Config
 from gui import CustomFormWidget, CustomButton, HorizontalLine, PILImage, PILImageWidget
 from history_widget import append_snapshots_history
 from tflite_classifier_predictor import TFClassifierPredictor
 
-CAMERA_DEFAULT_IMAGE = "./resources/sample_snapshot.jpg"
+
 NAME = "camera_name"
 MODEL_NAME = "model_name"
 JPEG_URL = "jpeg_url"
@@ -53,7 +54,6 @@ class CameraWidget(gui.Container):
         self.append(hbox)
 
         self.settings = CustomFormWidget()
-        self.settings.add_field_with_label("x", "asd", gui.Date())
         self.add_text_field(NAME, "Custom name of the camera", "Home")
         self.add_text_field(MODEL_NAME, "Model Name", "mobilenet_v1_1.0_224_quant")
         self.add_text_field(JPEG_URL, "Camera JPEG URL endpoint")
@@ -67,9 +67,9 @@ class CameraWidget(gui.Container):
         self.add_int_field(ROI_Y_MAX, "ROI Y maximum [%]", default_value=100)
         self.settings.style["width"] = "80%"
 
-        self.defaultCameraImage = Image.open(CAMERA_DEFAULT_IMAGE)
+        self.defaultCameraImage = Image.open(Config.CAMERA_DEFAULT_IMAGE)
         self.imageWidget = PILImageWidget(app_instance)
-        self.imageWidget.load(CAMERA_DEFAULT_IMAGE, use_js=False)
+        self.imageWidget.load(Config.CAMERA_DEFAULT_IMAGE, use_js=False)
         self.imageWidget.style["width"] = "50%"
         self.infoLabel = gui.Label("Info: ...")
 
@@ -219,7 +219,7 @@ class CameraWidget(gui.Container):
 
     def draw_camera_roi(self, roi: Tuple[int, int, int, int], image: PILImage):
         draw = ImageDraw.Draw(image)
-        draw.rectangle((roi[:2], roi[2:]), fill=None, outline="red", width=2)
+        draw.rectangle((roi[:2], roi[2:]), fill=None, outline="red", width=5)
 
     def test_camera(self, emitter=None):
         if self.cameraClient is None or not self.cameraClient.is_valid():

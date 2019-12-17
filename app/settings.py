@@ -5,9 +5,8 @@ import yaml
 from remi import App
 
 from camera_widget import CameraWidget
+from config import Config
 from gui import CustomButton
-
-CONFIG_PATH = Path("resources/config.yaml")
 
 
 class Settings(gui.Container):
@@ -31,13 +30,13 @@ class Settings(gui.Container):
     def save_settings(self, emitter=None):
         camera_config = self.cameraWidget.get_settings()
         config = {"camera": camera_config}
-        with CONFIG_PATH.open("w") as file:
+        with Config.CONFIG_PATH.open("w") as file:
             yaml.dump(config, file)
 
     def load_settings(self):
-        if not CONFIG_PATH.exists():
+        if not Config.CONFIG_PATH.exists():
             return False
-        with CONFIG_PATH.open("r") as file:
+        with Config.CONFIG_PATH.open("r") as file:
             config = yaml.load(file, Loader=yaml.Loader)
 
         self.cameraWidget.set_settings(config["camera"])

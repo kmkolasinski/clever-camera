@@ -11,7 +11,8 @@ import remi.gui as gui
 from remi import App
 
 PILImage = PIL.Image.Image
-BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "medium"}
+BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "medium", "border-radius": "5px"}
+SMALL_BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "smaller", "border-radius": "5px", "background": "rgb(188, 125, 4)"}
 
 
 class CustomButton(gui.Button):
@@ -66,6 +67,7 @@ class CustomFormWidget(gui.Container):
 
         field.add_class("input")
         field.set_style({"height": "40px"})
+        field.style["margin"] = "0px 5px"
         container = gui.HBox()
         container.style.update(
             {"justify-content": "space-between", "overflow": "auto", "padding": "3px",}
@@ -203,7 +205,8 @@ class PILImageViewerWidget(gui.Image):
         self.dummyImagePath = dummy_image_path
         self._buf = None
         self.image: PILImage = None
-        self.set_image(image=None)
+        if dummy_image_path is not None:
+            self.set_image(image=None)
 
     def load(self, path: str):
         self.set_image(PIL.Image.open(path))
