@@ -6,32 +6,30 @@ from typing import Optional, Dict, Any, Tuple, List
 
 import numpy as np
 import remi.gui as gui
-from PIL import ImageDraw
+from PIL import ImageDraw, Image
 
 from camera_client import CameraClient
-from gui import CustomFormWidget, CustomButton, HorizontalLine, PILImage
-from gui import PILImageViewerWidget
+from gui import CustomFormWidget, CustomButton, HorizontalLine, PILImage, SuperImage
 from history_widget import append_snapshots_history
 from tflite_classifier_predictor import TFClassifierPredictor
 
-
-class CameraKeys:
-    NAME = "camera_name"
-    MODEL_NAME = "model_name"
-    JPEG_URL = "jpeg_url"
-    USER = "user"
-    PASSWORD = "password"
-    ROI_X_MIN = "roi_x_min"
-    ROI_Y_MIN = "roi_y_min"
-    ROI_X_MAX = "roi_x_max"
-    ROI_Y_MAX = "roi_y_max"
-    CROP_SIZE = "crop_size"
-    CHECK_PERIOD = "check_period"
-    CLASS_FILTER = "class_filter"
+CAMERA_DEFAULT_IMAGE = "./resources/sample_snapshot.jpg"
+NAME = "camera_name"
+MODEL_NAME = "model_name"
+JPEG_URL = "jpeg_url"
+USER = "user"
+PASSWORD = "password"
+ROI_X_MIN = "roi_x_min"
+ROI_Y_MIN = "roi_y_min"
+ROI_X_MAX = "roi_x_max"
+ROI_Y_MAX = "roi_y_max"
+CROP_SIZE = "crop_size"
+CHECK_PERIOD = "check_period"
+CLASS_FILTER = "class_filter"
 
 
 class CameraWidget(gui.Widget):
-    def __init__(self, *args):
+    def __init__(self, app_instance, *args):
         super(CameraWidget, self).__init__(*args)
         self.cameraClient: Optional[CameraClient] = None
         self.predictor: Optional[TFClassifierPredictor] = None
@@ -45,50 +43,42 @@ class CameraWidget(gui.Widget):
         self.stopMonitoringButton = CustomButton("Stop monitoring")
         self.stopMonitoringButton.set_size(200, 40)
         self.append(HorizontalLine())
-        hbox = gui.HBox()
 
+        hbox = gui.HBox()
         hbox.append(self.testCameraButton)
         hbox.append(self.testPredictorButton)
         hbox.append(self.runMonitoringButton)
         hbox.append(self.stopMonitoringButton)
         hbox.set_style({"display": "flow-root"})
-
         self.append(hbox)
+
         self.settings = CustomFormWidget()
-        self.settings.add_text(CameraKeys.NAME, "Custom name of the camera", "Home")
-        self.settings.add_text(
-            CameraKeys.MODEL_NAME, "Model Name", "mobilenet_v1_1.0_224_quant"
-        )
-        self.settings.add_text(CameraKeys.JPEG_URL, "Camera JPEG URL endpoint")
-        self.settings.add_text(CameraKeys.USER, "Camera User name")
-        self.settings.add_text(CameraKeys.PASSWORD, "Camera Password")
-        self.settings.add_text(
-            CameraKeys.CLASS_FILTER, "Class filter (comma separated))", "*"
-        )
-        self.settings.add_numeric(
-            CameraKeys.CHECK_PERIOD, "Check period [seconds]", default_value=5
-        )
-        self.settings.add_numeric(CameraKeys.ROI_X_MIN, "ROI X minimum [%]")
-        self.settings.add_numeric(CameraKeys.ROI_Y_MIN, "ROI Y minimum [%]")
-        self.settings.add_numeric(
-            CameraKeys.ROI_X_MAX, "ROI X maximum [%]", default_value=100
-        )
-        self.settings.add_numeric(
-            CameraKeys.ROI_Y_MAX, "ROI Y maximum [%]", default_value=100
-        )
+        self.settings.add_field_with_label("x", "asd", gui.Date())
+        self.add_text_field(NAME, "Custom name of the camera", "Home")
+        self.add_text_field(MODEL_NAME, "Model Name", "mobilenet_v1_1.0_224_quant")
+        self.add_text_field(JPEG_URL, "Camera JPEG URL endpoint")
+        self.add_text_field(USER, "Camera User name")
+        self.add_text_field(PASSWORD, "Camera Password")
+        self.add_text_field(CLASS_FILTER, "Class filter (comma separated))", "*")
+        self.add_int_field(CHECK_PERIOD, "Check period [seconds]", default_value=5)
+        self.add_int_field(ROI_X_MIN, "ROI X minimum [%]")
+        self.add_int_field(ROI_Y_MIN, "ROI Y minimum [%]")
+        self.add_int_field(ROI_X_MAX, "ROI X maximum [%]", default_value=100)
+        self.add_int_field(ROI_Y_MAX, "ROI Y maximum [%]", default_value=100)
         self.settings.style["width"] = "80%"
 
-        self.imageWidget = PILImageViewerWidget("./resources/sample_snapshot.jpg")
-        self.imageWidget.load("./resources/sample_snapshot.jpg")
+        self.defaultCameraImage = Image.open(CAMERA_DEFAULT_IMAGE)
+        self.imageWidget = SuperImage(app_instance)
+        self.imageWidget.load(CAMERA_DEFAULT_IMAGE, use_js=False)
         self.imageWidget.style["width"] = "50%"
         self.infoLabel = gui.Label("Info: ...")
 
         self.append(self.infoLabel)
         self.append(HorizontalLine())
+
         hlayout = gui.HBox()
         hlayout.append(self.settings)
         hlayout.append(self.imageWidget)
-
         self.append(hlayout)
 
         # signals
@@ -97,21 +87,19 @@ class CameraWidget(gui.Widget):
         self.runMonitoringButton.onclick.do(self.start_monitoring)
         self.stopMonitoringButton.onclick.do(self.stop_monitoring)
 
-        self.settings.inputs[CameraKeys.ROI_X_MIN].onchange.do(
-            self.camera_settings_changed
-        )
-        self.settings.inputs[CameraKeys.ROI_Y_MIN].onchange.do(
-            self.camera_settings_changed
-        )
-        self.settings.inputs[CameraKeys.ROI_X_MAX].onchange.do(
-            self.camera_settings_changed
-        )
-        self.settings.inputs[CameraKeys.ROI_Y_MAX].onchange.do(
-            self.camera_settings_changed
-        )
+        self.settings.inputs[ROI_X_MIN].onchange.do(self.camera_settings_changed)
+        self.settings.inputs[ROI_Y_MIN].onchange.do(self.camera_settings_changed)
+        self.settings.inputs[ROI_X_MAX].onchange.do(self.camera_settings_changed)
+        self.settings.inputs[ROI_Y_MAX].onchange.do(self.camera_settings_changed)
 
-    def _monitoring_process(self):
-        sleepTime = float(self.settings.get_value(CameraKeys.CHECK_PERIOD))
+    def add_text_field(self, *args, **kwargs):
+        self.settings.add_text(*args, **kwargs)
+
+    def add_int_field(self, *args, **kwargs):
+        self.settings.add_numeric(*args, **kwargs)
+
+    def _monitoring_process_fn(self):
+        sleepTime = float(self.settings.get_value(CHECK_PERIOD))
         while self.isRunning:
             print("Checking image ...")
             start = time.time()
@@ -128,12 +116,12 @@ class CameraWidget(gui.Widget):
                 roi = self.get_camera_roi(currentImage)
                 cim = currentImage.crop(box=roi).resize((200, 200), resample=2)
                 pim = prevImage.crop(box=roi).resize((200, 200), resample=2)
-                img_diff = (
+                imageDiff = (
                     np.abs(np.array(cim).mean(-1) - np.array(pim).mean(-1)) / 255.0
                 )
-                total_change = (img_diff > threshold).mean()
-                print(f"Detected change: {total_change}")
-                if total_change < 0.01:
+                totalChange = (imageDiff > threshold).mean()
+                print(f"Detected change: {totalChange}")
+                if totalChange < 0.01:
                     imagePixelsChanged = False
 
             stop = time.time()
@@ -154,22 +142,22 @@ class CameraWidget(gui.Widget):
                 f"Monitor predictions in {float(stop - start):.3}[s]: {predictions}"
             )
 
-            self.check_predictions(
-                image=currentImage, predictions=predictions, image_change=total_change
+            self.check_and_append_predictions(
+                image=currentImage, predictions=predictions, image_change=totalChange
             )
             currentImage = currentImage.copy()
             currentImage.thumbnail((1024, 1024))
             roi = self.get_camera_roi(currentImage)
             self.draw_camera_roi(roi, currentImage)
-            self.imageWidget.set_image(currentImage)
+            self.imageWidget.set_pil_image(currentImage)
             sleep(delta)
 
-    def check_predictions(
+    def check_and_append_predictions(
         self, image: PILImage, predictions: List[Tuple[float, str]], image_change: float
     ):
         if len(predictions) == 0:
             return False
-        classFilter = self.settings.get_value(CameraKeys.CLASS_FILTER)
+        classFilter = self.settings.get_value(CLASS_FILTER)
         if classFilter == "*":
             labels = [label for score, label in predictions]
         else:
@@ -186,34 +174,38 @@ class CameraWidget(gui.Widget):
             image=image,
             labels=labels,
             class_filter=classFilter,
-            camera_name=self.settings.get_value(CameraKeys.NAME),
+            camera_name=self.settings.get_value(NAME),
             image_change=image_change,
         )
 
     def start_monitoring(self, emitter=None):
+        if not self.can_run_predictions():
+            return False
+
         if self.isRunning:
-            self.infoLabel.set_text("")
-            return
+            self.infoLabel.set_text("Warning: Already running!")
+            return False
+
         self.isRunning = True
-        cameraThread = threading.Thread(target=self._monitoring_process)
+        cameraThread = threading.Thread(target=self._monitoring_process_fn)
         cameraThread.start()
 
     def stop_monitoring(self, emitter=None):
-        print("Info: Monitoring finished ... ")
+        self.infoLabel.set_text("Info: Monitoring stopped!")
         self.isRunning = False
 
     def set_camera_client(self):
         self.cameraClient = CameraClient(
-            user=self.settings.get_value(CameraKeys.USER),
-            password=self.settings.get_value(CameraKeys.PASSWORD),
-            jpeg_url=self.settings.get_value(CameraKeys.JPEG_URL),
+            user=self.settings.get_value(USER),
+            password=self.settings.get_value(PASSWORD),
+            jpeg_url=self.settings.get_value(JPEG_URL),
         )
 
     def get_camera_roi(self, image: PILImage) -> Tuple[int, int, int, int]:
-        x_min = int(self.settings.get_value(CameraKeys.ROI_X_MIN))
-        y_min = int(self.settings.get_value(CameraKeys.ROI_Y_MIN))
-        x_max = int(self.settings.get_value(CameraKeys.ROI_X_MAX))
-        y_max = int(self.settings.get_value(CameraKeys.ROI_Y_MAX))
+        x_min = int(self.settings.get_value(ROI_X_MIN))
+        y_min = int(self.settings.get_value(ROI_Y_MIN))
+        x_max = int(self.settings.get_value(ROI_X_MAX))
+        y_max = int(self.settings.get_value(ROI_Y_MAX))
         x_min, y_min = max(0, x_min) / 100.0, max(0, y_min) / 100.0
         x_max, y_max = min(100, x_max) / 100.0, min(100, y_max) / 100.0
         width, height = image.size
@@ -237,23 +229,56 @@ class CameraWidget(gui.Widget):
         self.camera_settings_changed(emitter=None)
         self.infoLabel.set_text(msg)
 
+    def can_run_predictions(self) -> bool:
+        self.load_classifier()
+        if self.predictor is None:
+            return False
+
+        if self.cameraClient is None:
+            self.infoLabel.set_text(
+                "Error: Camera client not loaded! Click 'test camera'"
+            )
+            return False
+        return True
+
     def test_predictor(self, emitter=None):
-        image = self.cameraClient.get_latest_snapshot()
+
+        if not self.can_run_predictions():
+            image = self.defaultCameraImage.copy()
+        else:
+            image = self.cameraClient.get_latest_snapshot()
+
         if image is not None:
             roi = self.get_camera_roi(image)
-            image = image.crop(box=roi)
-            predictions = self.predictor.predict(image=image)
+            imageCrop = image.crop(box=roi)
+            predictions = self.predictor.predict(image=imageCrop)
             self.infoLabel.set_text(f"Info: Classifier OK! Predicted: {predictions}")
 
     def camera_settings_changed(self, emitter=None, *args):
-        if self.cameraClient is None:
-            return False
-        image = self.cameraClient.get_latest_snapshot()
-        if image is not None:
-            image.thumbnail((1024, 1024))
-            roi = self.get_camera_roi(image)
-            self.draw_camera_roi(roi, image)
-        self.imageWidget.set_image(image)
+        image = None
+        if self.cameraClient is not None:
+            image = self.cameraClient.get_latest_snapshot()
+
+        if image is None:
+            image = self.defaultCameraImage.copy()
+
+        image.thumbnail((1024, 1024))
+        roi = self.get_camera_roi(image)
+        self.draw_camera_roi(roi, image)
+        self.imageWidget.set_pil_image(image)
+
+    def load_classifier(self):
+        model_path = self.settings.get_value(MODEL_NAME)
+        model_path = Path("models") / model_path
+        self.predictor = None
+        if model_path.exists():
+            try:
+                self.predictor = TFClassifierPredictor.load(model_path)
+                self.infoLabel.set_text("Info: Classifier loaded!")
+            except Exception as e:
+                self.infoLabel.set_text(f"Error: Cannot load classifier: {e}")
+        else:
+            self.infoLabel.set_text(f"Error: Cannot find model at path: {model_path}")
 
     def get_settings(self) -> Dict[str, Any]:
         config = {
@@ -266,12 +291,4 @@ class CameraWidget(gui.Widget):
             if self.settings.has_field(key):
                 self.settings.set_value(key, value)
 
-        model_path = self.settings.get_value(CameraKeys.MODEL_NAME)
-        model_path = Path("models") / model_path
-        if model_path.exists():
-            self.predictor = TFClassifierPredictor.load(model_path)
-        else:
-            self.predictor = None
-            self.infoLabel.set_text(f"Error: Cannot find model at path: {model_path}")
-
-        self.set_camera_client()
+        self.load_classifier()

@@ -12,7 +12,7 @@ class MyApp(App):
     def main(self):
         tb = gui.TabBox(width="100%")
         history = HistoryWidget()
-        settings = Settings()
+        settings = Settings(self)
         tb.add_tab(history, "History", None)
         tb.add_tab(settings, "Settings", None)
         return tb
@@ -26,4 +26,5 @@ if __name__ == "__main__":
         debug=True,
         port=4000,
         start_browser=False,
+        enable_file_cache=True
     )

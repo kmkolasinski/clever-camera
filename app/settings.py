@@ -2,6 +2,7 @@ from pathlib import Path
 
 import remi.gui as gui
 import yaml
+from remi import App
 
 from camera_widget import CameraWidget
 from gui import CustomButton
@@ -10,19 +11,17 @@ CONFIG_PATH = Path("resources/config.yaml")
 
 
 class Settings(gui.Widget):
-    def __init__(self, *args):
+    def __init__(self, app: App, *args):
         super(Settings, self).__init__(*args)
-
+        self.app_instance = app
         self.saveSettings = CustomButton("Save Settings")
         self.saveSettings.set_size(300, 40)
-        self.cameraWidget = CameraWidget()
+        self.cameraWidget = CameraWidget(app)
         mainLayout = gui.VBox()
 
         buttonLayout = gui.HBox()
         buttonLayout.append(self.saveSettings)
-
         mainLayout.append(self.cameraWidget)
-
         self.append(mainLayout)
         self.append(buttonLayout)
         self.load_settings()

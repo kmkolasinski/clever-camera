@@ -60,7 +60,9 @@ class HistoryRecordWidget(gui.Widget):
     def __init__(self, *args):
         super(HistoryRecordWidget, self).__init__(*args)
 
-        self.imageThumbnailWidget = PILImageViewerWidget("./resources/sample_snapshot.jpg")
+        self.imageThumbnailWidget = PILImageViewerWidget(
+            "./resources/sample_snapshot.jpg"
+        )
         self.imageThumbnailWidget.load("./resources/sample_snapshot.jpg")
         self.labelsLabel = gui.Label("")
         self.dateLabel = gui.Label("")
@@ -122,7 +124,7 @@ def load_history_widgets():
     folders = natsorted(SNAPSHOTS_DIRECTORY.glob("*"))
     for folder in folders:
         if not folder.is_dir():
-           continue
+            continue
         with (Path(folder) / "history.json").open("r") as file:
             day_history_list = json.load(file)[::-1]
         for day_config in day_history_list:

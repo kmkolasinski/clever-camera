@@ -1,4 +1,7 @@
+import base64
+import binascii
 import io
+import mimetypes
 import time
 from typing import Union, Optional
 
@@ -227,3 +230,80 @@ class PILImageViewerWidget(gui.Image):
         self._buf.seek(0)
         headers = {"Content-type": "image/jpeg"}
         return [self._buf.read(), headers]
+
+
+class SuperImage(gui.Image):
+    def __init__(self, app_instance: App, file_path_name=None, **kwargs):
+        """
+        This new app_instance variable is causing lots of problems.  I do not know the value of the App
+        when I create this image.
+        :param app_instance:
+        :param file_path_name:
+        :param kwargs:
+        """
+        # self.app_instance = app_instance
+        image = file_path_name
+        super(SuperImage, self).__init__(image, **kwargs)
+        self.app_instance = app_instance
+        self.imagedata = None
+        self.mimetype = None
+        self.encoding = None
+        if not image:
+            return
+        self.load(image)
+
+    def load(self, file_path_name, use_js: bool = True):
+        if type(file_path_name) is bytes or len(file_path_name) > 200:
+            try:
+                # here a base64 image is received
+                self.imagedata = base64.b64decode(file_path_name, validate=True)
+                self.attributes["src"] = "/%s/get_image_data?update_index=%s" % (
+                    id(self),
+                    str(time.time()),
+                )
+            except binascii.Error:
+                # here an image data is received (opencv image)
+                self.imagedata = file_path_name
+                self.refresh()
+        else:
+            # here a filename is received
+            self.mimetype, self.encoding = mimetypes.guess_type(file_path_name)
+            with open(file_path_name, "rb") as f:
+                self.imagedata = f.read()
+            self.refresh(use_js=use_js)
+
+    def set_pil_image(self, image: PILImage) -> None:
+        buf = io.BytesIO()
+        image.save(buf, format="jpeg")
+        self.mimetype = "image/jpeg"
+        self.imagedata = buf.getvalue()
+        self.refresh(use_js=True)
+
+    def refresh(self, use_js: bool = True):
+        i = int(time.time() * 1e6)
+        if use_js:
+            self.app_instance.execute_javascript(
+                """
+                var url = '/%(id)s/get_image_data?update_index=%(frame_index)s';
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', url, true);
+                xhr.responseType = 'blob'
+                xhr.onload = function(e){
+                    var urlCreator = window.URL || window.webkitURL;
+                    var imageUrl = urlCreator.createObjectURL(this.response);
+                    document.getElementById('%(id)s').src = imageUrl;
+                }
+                xhr.send();
+                """
+                % {"id": id(self), "frame_index": i}
+            )
+        else:
+            self.attributes["src"] = f"/{id(self)}/get_image_data?update_index={i}"
+
+    def get_image_data(self, update_index):
+        headers = {
+            "Content-type": self.mimetype
+            if self.mimetype
+            else "application/octet-stream"
+        }
+        return [self.imagedata, headers]
