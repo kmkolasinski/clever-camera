@@ -1,6 +1,7 @@
 config.yaml
-app/data/snapshots/*
 
+data/snapshots/*
+.idea
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

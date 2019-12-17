@@ -26,13 +26,12 @@ class MyApp(App):
         self.page.children["head"].add_child("myjs", my_js_head)
 
     def main(self):
+        # self.setup_styles()
         tb = gui.TabBox(width="100%")
         history = HistoryWidget()
         settings = Settings(self)
         tb.add_tab(history, "History", None)
         tb.add_tab(settings, "Settings", None)
-        tb.container_tab_titles.set_size(width="100%", height=40)
-        tb.container_tab_titles.css_font_size = "25px"
         Config.APP_INSTANCE = self
         return tb
 

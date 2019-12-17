@@ -6,7 +6,7 @@ from remi import App
 
 from camera_widget import CameraWidget
 from config import Config
-from gui import CustomButton
+from gui import CustomButton, HorizontalLine
 
 
 class Settings(gui.Container):
@@ -16,8 +16,9 @@ class Settings(gui.Container):
         self.saveSettings = CustomButton("Save Settings")
         self.saveSettings.set_size(300, 40)
         self.cameraWidget = CameraWidget(app)
+        self.css_width = "100%"
+        self.append(HorizontalLine())
         mainLayout = gui.VBox()
-
         buttonLayout = gui.HBox()
         buttonLayout.append(self.saveSettings)
         mainLayout.append(self.cameraWidget)

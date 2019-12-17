@@ -70,6 +70,9 @@ class HistoryRecordWidget(gui.Container):
         self.downloadImageButton = CustomButton("Download")
         self.imageThumbnailWidget.set_size(*Config.MINI_THUMBNAIL_SIZE)
 
+        self.downloadImageButton.add_class(
+            "glyphicon glyphicon glyphicon-edit btn-small")
+
         self.labelsLabel.css_width = "20%"
         self.dateLabel.css_width = "20%"
 
@@ -83,6 +86,7 @@ class HistoryRecordWidget(gui.Container):
 
         #signals
         self.downloadImageButton.onclick.do(self.on_download_image)
+        self.imageThumbnailWidget.onclick.do(self.on_download_image)
 
     @staticmethod
     def from_config(config: Dict[str, Any]) -> "HistoryRecordWidget":
@@ -118,7 +122,6 @@ class HistoryWidget(gui.Container):
         self.container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.historyList = gui.ListView()
         self.labelsList = gui.ListView()
-        self.container.append(self.labelsList)
         self.container.append(self.historyList)
 
         self.reloadHistoryButton = CustomButton("Search")
@@ -141,6 +144,7 @@ class HistoryWidget(gui.Container):
         self.append(HorizontalLine())
         self.append(hlayout)
         self.append(self.searchInfoLabel)
+        self.append(self.labelsList)
         self.append(HorizontalLine())
         self.append(self.container)
         self.append(HorizontalLine())

@@ -12,7 +12,7 @@ from remi import App
 
 PILImage = PIL.Image.Image
 BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "medium", "border-radius": "5px"}
-SMALL_BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "smaller", "border-radius": "5px", "background": "rgb(188, 125, 4)"}
+SMALL_BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "small", "border-radius": "5px", "background": "rgb(188, 125, 4)"}
 
 
 class CustomButton(gui.Button):

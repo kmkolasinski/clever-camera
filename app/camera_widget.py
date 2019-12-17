@@ -43,7 +43,6 @@ class CameraWidget(gui.Container):
         self.runMonitoringButton.set_size(200, 40)
         self.stopMonitoringButton = CustomButton("Stop monitoring")
         self.stopMonitoringButton.set_size(200, 40)
-        self.append(HorizontalLine())
 
         hbox = gui.HBox()
         hbox.append(self.testCameraButton)
