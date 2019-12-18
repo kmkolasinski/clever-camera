@@ -3,7 +3,6 @@ from typing import Optional, Tuple
 import requests
 from PIL import Image
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
-
 from gui import PILImage
 
 
@@ -32,23 +31,23 @@ class CameraClient:
         if not self.is_valid():
             return (
                 None,
-                "Error: Invalid session, bad camera "
+                "Invalid session, bad camera "
                 "configuration. Check login, password and url.",
             )
         try:
             response = self.session.get(self.jpeg_url)
             if not response.ok:
-                return None, f"Error: Bad response: {response}. Check jpeg_url."
+                return None, f"Bad response: {response}. Check jpeg_url."
             image_bytes = BytesIO()
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     image_bytes.write(chunk)
             image = Image.open(image_bytes)
         except Exception as error:
-            return None, f"Error: Cannot get image bytes: {error}"
+            return None, f"Cannot get image bytes: {error}"
 
         self.image = image.copy()
-        return image, "Info: Camera is OK!"
+        return image, "Camera is OK!"
 
     def get_latest_snapshot(self) -> Optional[PILImage]:
         if self.image is not None:

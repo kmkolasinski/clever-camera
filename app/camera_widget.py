@@ -10,7 +10,14 @@ from PIL import ImageDraw, Image
 
 from camera_client import CameraClient
 from config import Config
-from gui import CustomFormWidget, CustomButton, HorizontalLine, PILImage, PILImageWidget
+from gui import (
+    CustomFormWidget,
+    CustomButton,
+    HorizontalLine,
+    PILImage,
+    PILImageWidget,
+    LoggerWidget,
+)
 from history_widget import append_snapshots_history
 from tflite_classifier_predictor import TFClassifierPredictor
 
@@ -27,6 +34,8 @@ ROI_Y_MAX = "roi_y_max"
 CROP_SIZE = "crop_size"
 CHECK_PERIOD = "check_period"
 CLASS_FILTER = "class_filter"
+PER_PIXEL_CHANGE_THRESHOLD = 0.2
+MEAN_CHANGE_THRESHOLD = 0.01
 
 
 class CameraWidget(gui.Container):
@@ -43,6 +52,9 @@ class CameraWidget(gui.Container):
         self.runMonitoringButton.set_size(200, 40)
         self.stopMonitoringButton = CustomButton("Stop monitoring")
         self.stopMonitoringButton.set_size(200, 40)
+
+        self.logger = LoggerWidget()
+        self.append(self.logger)
 
         hbox = gui.HBox()
         hbox.append(self.testCameraButton)
@@ -70,9 +82,7 @@ class CameraWidget(gui.Container):
         self.imageWidget = PILImageWidget(app_instance)
         self.imageWidget.load(Config.CAMERA_DEFAULT_IMAGE, use_js=False)
         self.imageWidget.style["width"] = "50%"
-        self.infoLabel = gui.Label("Info: ...")
 
-        self.append(self.infoLabel)
         self.append(HorizontalLine())
 
         hlayout = gui.HBox()
@@ -100,7 +110,6 @@ class CameraWidget(gui.Container):
     def _monitoring_process_fn(self):
         sleepTime = float(self.settings.get_value(CHECK_PERIOD))
         while self.isRunning:
-            print("Checking image ...")
             start = time.time()
             prevImage = self.cameraClient.get_latest_snapshot()
             currentImage, msg = self.cameraClient.get_snapshot()
@@ -111,39 +120,40 @@ class CameraWidget(gui.Container):
 
             imagePixelsChanged = True
             if prevImage is not None:
-                threshold = 0.2
                 roi = self.get_camera_roi(currentImage)
                 cim = currentImage.crop(box=roi).resize((200, 200), resample=2)
                 pim = prevImage.crop(box=roi).resize((200, 200), resample=2)
                 imageDiff = (
                     np.abs(np.array(cim).mean(-1) - np.array(pim).mean(-1)) / 255.0
                 )
-                totalChange = (imageDiff > threshold).mean()
-                print(f"Detected change: {totalChange}")
-                if totalChange < 0.01:
+                totalChange = (imageDiff > PER_PIXEL_CHANGE_THRESHOLD).mean()
+                if totalChange < MEAN_CHANGE_THRESHOLD:
                     imagePixelsChanged = False
 
             stop = time.time()
             if not imagePixelsChanged:
-                print(f"Image not changed. Sleeping for: {sleepTime}")
                 delta = max(sleepTime - float(stop - start), 0)
+                self.logger.info(f"Image not changed. Waiting {delta:.2f} seconds.")
+                self.camera_settings_changed()
                 sleep(delta)
                 continue
 
-            print("Doing predictions ..")
+            self.logger.info(
+                f"Image changed ({totalChange:.4f}), doing predictions ..."
+            )
             roi = self.get_camera_roi(currentImage)
             crop = currentImage.crop(box=roi)
             predictions = self.predictor.predict(image=crop)
             print(f"Done: {predictions}")
             stop = time.time()
             delta = max(sleepTime - float(stop - start), 0)
-            self.infoLabel.set_text(
+            self.logger.info(
                 f"Monitor predictions in {float(stop - start):.3}[s]: {predictions}"
             )
-
             self.check_and_append_predictions(
                 image=currentImage, predictions=predictions, image_change=totalChange
             )
+
             currentImage = currentImage.copy()
             currentImage.thumbnail((1024, 1024))
             roi = self.get_camera_roi(currentImage)
@@ -182,7 +192,7 @@ class CameraWidget(gui.Container):
             return False
 
         if self.isRunning:
-            self.infoLabel.set_text("Warning: Already running!")
+            self.logger.warning("Already running!")
             return False
 
         self.isRunning = True
@@ -190,7 +200,7 @@ class CameraWidget(gui.Container):
         cameraThread.start()
 
     def stop_monitoring(self, emitter=None):
-        self.infoLabel.set_text("Info: Monitoring stopped!")
+        self.logger.info("Monitoring stopped!")
         self.isRunning = False
 
     def set_camera_client(self):
@@ -226,7 +236,10 @@ class CameraWidget(gui.Container):
 
         image, msg = self.cameraClient.get_snapshot()
         self.camera_settings_changed(emitter=None)
-        self.infoLabel.set_text(msg)
+        if image is None:
+            self.logger.error(msg)
+        else:
+            self.logger.info(msg)
 
     def can_run_predictions(self) -> bool:
         self.load_classifier()
@@ -234,9 +247,7 @@ class CameraWidget(gui.Container):
             return False
 
         if self.cameraClient is None:
-            self.infoLabel.set_text(
-                "Error: Camera client not loaded! Click 'test camera'"
-            )
+            self.logger.error("Camera client not loaded! Click 'test camera'")
             return False
         return True
 
@@ -251,7 +262,7 @@ class CameraWidget(gui.Container):
             roi = self.get_camera_roi(image)
             imageCrop = image.crop(box=roi)
             predictions = self.predictor.predict(image=imageCrop)
-            self.infoLabel.set_text(f"Info: Classifier OK! Predicted: {predictions}")
+            self.logger.info(f"Classifier OK! Predicted: {predictions}")
 
     def camera_settings_changed(self, emitter=None, *args):
         image = None
@@ -273,11 +284,11 @@ class CameraWidget(gui.Container):
         if model_path.exists():
             try:
                 self.predictor = TFClassifierPredictor.load(model_path)
-                self.infoLabel.set_text("Info: Classifier loaded!")
+                self.logger.info("Classifier loaded!")
             except Exception as e:
-                self.infoLabel.set_text(f"Error: Cannot load classifier: {e}")
+                self.logger.error(f"Cannot load classifier: {e}")
         else:
-            self.infoLabel.set_text(f"Error: Cannot find model at path: {model_path}")
+            self.logger.error(f"Cannot find model at path: {model_path}")
 
     def get_settings(self) -> Dict[str, Any]:
         config = {

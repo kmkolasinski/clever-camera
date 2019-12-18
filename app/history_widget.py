@@ -4,16 +4,25 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Union, Tuple, Optional
-
+from io import StringIO, BytesIO
 from PIL import Image
+import zipfile
 from natsort import natsorted
 from remi import gui
 
 from config import Config
-from gui import PILImage, PILImageViewerWidget, CustomButton, HorizontalLine, \
-    Header, PILImageWidget, CustomFormWidget, SMALL_BUTTON_STYLE
+from gui import (
+    PILImage,
+    StaticPILImageWidget,
+    CustomButton,
+    HorizontalLine,
+    Header,
+    PILImageWidget,
+    CustomFormWidget,
+    SMALL_BUTTON_STYLE,
+)
 
-DAY_FORMAT = '%Y-%m-%d'
+DAY_FORMAT = "%Y-%m-%d"
 
 
 def append_snapshots_history(
@@ -64,29 +73,29 @@ class HistoryRecordWidget(gui.Container):
         super(HistoryRecordWidget, self).__init__(*args)
 
         self.imagePath = None
-        self.imageThumbnailWidget = PILImageViewerWidget(None)
+        self.imageThumbnailWidget = StaticPILImageWidget(None)
         self.labelsLabel = gui.Label("")
         self.dateLabel = gui.Label("")
         self.downloadImageButton = CustomButton("Download")
         self.imageThumbnailWidget.set_size(*Config.MINI_THUMBNAIL_SIZE)
-
-        self.downloadImageButton.add_class(
-            "glyphicon glyphicon glyphicon-edit btn-small")
+        self.selectSnapshotCheckBox = gui.CheckBox()
 
         self.labelsLabel.css_width = "20%"
         self.dateLabel.css_width = "20%"
 
         hl = gui.HBox()
+        hl.append(self.selectSnapshotCheckBox)
         hl.append(self.imageThumbnailWidget)
         hl.append(self.labelsLabel)
         hl.append(self.dateLabel)
         hl.append(self.downloadImageButton)
-
+        self.layout = hl
         self.append(hl)
 
-        #signals
+        # signals
         self.downloadImageButton.onclick.do(self.on_download_image)
         self.imageThumbnailWidget.onclick.do(self.on_download_image)
+        self.selectSnapshotCheckBox.onclick.do(self.checkbox_toggled)
 
     @staticmethod
     def from_config(config: Dict[str, Any]) -> "HistoryRecordWidget":
@@ -95,7 +104,7 @@ class HistoryRecordWidget(gui.Container):
         widget.imageThumbnailWidget.set_image(thumbnail)
         widget.labelsLabel.set_text(", ".join(config["labels"]))
         widget.dateLabel.set_text(config["datetime"])
-        widget.imagePath = config['image_path']
+        widget.imagePath = config["image_path"]
         return widget
 
     def on_download_image(self, emitter):
@@ -104,11 +113,26 @@ class HistoryRecordWidget(gui.Container):
         )
 
     def direct_download(self):
-        with open(self.imagePath, 'r+b') as f:
+        with open(self.imagePath, "r+b") as f:
             content = f.read()
-            headers = {'Content-type': 'image/jpeg',
-                       'Content-Disposition': 'attachment; filename="%s"' % os.path.basename(self.imagePath)}
+            headers = {
+                "Content-type": "image/jpeg",
+                "Content-Disposition": 'attachment; filename="%s"'
+                % os.path.basename(self.imagePath),
+            }
             return [content, headers]
+
+    def is_selected(self) -> bool:
+        return self.selectSnapshotCheckBox.get_value()
+
+    def set_selected(self, toggle: bool):
+        self.selectSnapshotCheckBox.set_value(toggle)
+
+    def checkbox_toggled(self, emitter: gui.CheckBox):
+        is_selected = not emitter.get_value()
+        emitter.set_value(is_selected)
+        self.layout.css_background_color = "#8bc34a7a" if is_selected else "#fff"
+        self.layout.redraw()
 
 
 class HistoryWidget(gui.Container):
@@ -131,35 +155,58 @@ class HistoryWidget(gui.Container):
         self.filterByLabel = gui.TextInput()
         self.filterByLabel.set_text("*")
         self.searchInfoLabel = gui.Label("Search info ...")
+        self.downloadSelectedImagesButton = CustomButton("Download selected")
+        self.selectAllImagesButton = CustomButton("Select All")
+        self.deSelectAllImagesButton = CustomButton("Deselect All")
 
         searchFormWidget = CustomFormWidget()
         searchFormWidget.css_width = "50%"
-        searchFormWidget.add_field_with_label("select_from_day", "Search from", self.searchFromDay)
-        searchFormWidget.add_field_with_label("select_to_day", "Search to", self.searchToDay)
-        searchFormWidget.add_field_with_label("search_by_label", "Filter by label", self.filterByLabel)
+        searchFormWidget.add_field_with_label(
+            "select_from_day", "Search from", self.searchFromDay
+        )
+        searchFormWidget.add_field_with_label(
+            "select_to_day", "Search to", self.searchToDay
+        )
+        searchFormWidget.add_field_with_label(
+            "search_by_label", "Filter by label", self.filterByLabel
+        )
         searchFormWidget.add_field_with_label("reload", "", self.reloadHistoryButton)
-        hlayout = gui.VBox()
-        hlayout.append(searchFormWidget)
+
+        formLayout = gui.VBox()
+        formLayout.append(searchFormWidget)
+
+        selectionLayout = gui.HBox()
+        selectionLayout.style.update({"display": "inline-flex", "margin": "5px"})
+
+        selectionLayout.append(self.downloadSelectedImagesButton)
+        selectionLayout.append(self.selectAllImagesButton)
+        selectionLayout.append(self.deSelectAllImagesButton)
 
         self.append(HorizontalLine())
-        self.append(hlayout)
+        self.append(formLayout)
+        self.append(selectionLayout)
         self.append(self.searchInfoLabel)
+        self.append(HorizontalLine())
         self.append(self.labelsList)
+        self.append(HorizontalLine())
         self.append(HorizontalLine())
         self.append(self.container)
         self.append(HorizontalLine())
 
         # signals:
         self.reloadHistoryButton.onclick.do(self.reload_history)
+        self.downloadSelectedImagesButton.onclick.do(self.on_download_images)
+        self.selectAllImagesButton.onclick.do(self.select_all_images)
+        self.deSelectAllImagesButton.onclick.do(self.deselect_all_images)
 
-    def reload_history(self, emitter=None, search_button = None):
+    def reload_history(self, emitter=None, search_button=None):
         self.historyList.empty()
         self.labelsList.empty()
 
         widgets, labels, msg = load_history_widgets(
             start_date=self.searchFromDay.get_value(),
             end_date=self.searchToDay.get_value(),
-            labels_filter=self.filterByLabel.get_text()
+            labels_filter=self.filterByLabel.get_text(),
         )
         if widgets is None:
             self.searchInfoLabel.set_text(f"Error: {msg}")
@@ -187,7 +234,50 @@ class HistoryWidget(gui.Container):
             labelButton.onclick.do(self.reload_history, labelButton)
             self.labelsList.append(labelButton)
 
+    def selected_images(self) -> List[str]:
+        imagesToPack = []
+        for name, widget in self.historyList.children.items():
+            if type(widget) == HistoryRecordWidget and widget.is_selected():
+                imagesToPack.append(widget.imagePath)
+        return imagesToPack
 
+    def select_all_images(self, emitter=None) -> None:
+        for name, widget in self.historyList.children.items():
+            if type(widget) == HistoryRecordWidget:
+                widget.set_selected(True)
+
+    def deselect_all_images(self, emitter=None) -> None:
+        for name, widget in self.historyList.children.items():
+            if type(widget) == HistoryRecordWidget:
+                widget.set_selected(False)
+
+    def on_download_images(self, emitter):
+        if not self.selected_images():
+            return
+
+        Config.APP_INSTANCE.execute_javascript(
+            f'window.location = "/{id(self)}/direct_download_selected"'
+        )
+
+    def direct_download_selected(self):
+
+        imagesToPack = self.selected_images()
+        start_date = self.searchFromDay.get_value()
+        end_date = self.searchToDay.get_value()
+        zipName = f"snapshots-{start_date}-{end_date}.zip"
+        zipBytes = BytesIO()
+        zipFile = zipfile.ZipFile(zipBytes, "w")
+        for image in imagesToPack:
+            imageBytes = open(image, "r+b").read()
+            imageName = Path(image).name
+            zipFile.writestr(imageName, imageBytes)
+        zipFile.close()
+
+        headers = {
+            "Content-type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{zipName}"',
+        }
+        return [zipBytes.getvalue(), headers]
 
 
 def load_history_widgets(
@@ -208,10 +298,12 @@ def load_history_widgets(
         folder = Config.SNAPSHOTS_DIRECTORY / search_day.strftime(DAY_FORMAT)
         if not folder.is_dir():
             search_day += add_one_day
+            continue
 
         day_config_path = Path(folder) / "history.json"
         if not day_config_path.exists():
             search_day += add_one_day
+            continue
 
         with day_config_path.open("r") as file:
             day_history_list = json.load(file)

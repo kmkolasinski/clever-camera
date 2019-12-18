@@ -3,7 +3,7 @@ import binascii
 import io
 import mimetypes
 import time
-from typing import Union, Optional
+from typing import Union, Optional, List
 
 import PIL
 import PIL.Image
@@ -11,14 +11,47 @@ import remi.gui as gui
 from remi import App
 
 PILImage = PIL.Image.Image
-BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "medium", "border-radius": "5px"}
-SMALL_BUTTON_STYLE = {"margin": "5px 5px", "padding": "5px 5px", "font-size": "small", "border-radius": "5px", "background": "rgb(188, 125, 4)"}
+BUTTON_STYLE = {
+    "margin": "5px 5px",
+    "padding": "5px 5px",
+    "font-size": "medium",
+    "border-radius": "5px",
+}
+SMALL_BUTTON_STYLE = {
+    "margin": "5px 5px",
+    "padding": "5px 5px",
+    "font-size": "small",
+    "border-radius": "5px",
+    "background": "rgb(188, 125, 4)",
+}
 
 
 class CustomButton(gui.Button):
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
         self.set_style(style=BUTTON_STYLE)
+
+
+class LoggerWidget(gui.ListView):
+    def __init__(self, *arg, **kwargs):
+        super().__init__(*arg, **kwargs)
+        self.history = []
+
+    def update_history(self, label: gui.Label):
+        self.history = self.history[-5:]
+        self.history.append(label)
+        self.empty()
+        for label in self.history:
+            self.append(label)
+
+    def info(self, text: str):
+        self.update_history(gui.Label(text))
+
+    def warning(self, text: str):
+        self.update_history(gui.Label(text))
+
+    def error(self, text: str):
+        self.update_history(gui.Label(text))
 
 
 class PlainHTML(gui.Widget):
@@ -115,93 +148,13 @@ class CustomFormWidget(gui.Container):
         raise NotImplementedError(f"Setter for {field} is not implemented.")
 
 
-class ConfigInfoWidget(gui.Container):
-    def __init__(self, app: App, parent: gui.Widget, html_text: str, *args):
-        super(ConfigInfoWidget, self).__init__(*args)
-        self.app = app
-        self.parent = parent
-        self.style.update({"display": "block", "overflow": "auto", "margin": "5px"})
-        self.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
-        self.back_button = CustomButton("Back")
-        self.back_button.onclick.do(self.exit)
-        self.append(self.back_button)
+class StaticPILImageWidget(gui.Image):
+    """
+    Use this when image does not have to reloaded frequently
+    """
 
-        self.title_label = gui.TextInput()
-        self.title_label.set_enabled(False)
-        self.html_content = PlainHTML(html_text)
-        self.append(self.title_label)
-        self.append(self.html_content)
-
-    def set_title(self, text: str):
-        self.title_label.set_text(text)
-
-    def exit(self, emitter):
-        self.app.set_root_widget(self.parent)
-
-
-class WarningBoxWidget(gui.Container):
-    def __init__(self, app: App, parent: gui.Widget, title: str, msg: str, *args):
-        super(WarningBoxWidget, self).__init__(*args)
-        self.app = app
-        self.parent = parent
-        self.style.update({"display": "block", "overflow": "auto", "margin": "5px"})
-        self.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
-        self.back_button = CustomButton("Back")
-        self.back_button.onclick.do(self.exit)
-        self.append(self.back_button)
-
-        self.title = Header(title)
-        self.message = PlainHTML(msg)
-        self.append(self.title)
-        self.append(self.message)
-
-    def exit(self, emitter):
-        self.app.set_root_widget(self.parent)
-
-    def show(self):
-        self.app.set_root_widget(self)
-
-
-class YesNoMessageBoxWidget(gui.Container):
-    def __init__(
-        self, app: App, parent: gui.Widget, title: str, msg: str, accept_fn, *args
-    ):
-        super(YesNoMessageBoxWidget, self).__init__(*args)
-        self.app = app
-        self.parent = parent
-        self.accept_fn = accept_fn
-        self.style.update({"display": "block", "overflow": "auto", "margin": "5px"})
-        self.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
-        self.ok_button = CustomButton("Yes")
-        self.ok_button.onclick.do(self.accept)
-        self.no_button = CustomButton("No")
-        self.no_button.onclick.do(self.exit)
-
-        self.title = Header(title)
-        self.message = PlainHTML(msg)
-        self.append(self.title)
-        self.append(HorizontalLine())
-        self.append(self.message)
-        self.append(HorizontalLine())
-        hlayout = gui.HBox()
-        hlayout.append(self.no_button)
-        hlayout.append(self.ok_button)
-        self.append(hlayout)
-
-    def exit(self, emitter):
-        self.app.set_root_widget(self.parent)
-
-    def accept(self, emitter):
-        self.accept_fn()
-        self.app.set_root_widget(self.parent)
-
-    def show(self):
-        self.app.set_root_widget(self)
-
-
-class PILImageViewerWidget(gui.Image):
     def __init__(self, dummy_image_path: str, **kwargs):
-        super(PILImageViewerWidget, self).__init__("", **kwargs)
+        super(StaticPILImageWidget, self).__init__("", **kwargs)
         self.dummyImagePath = dummy_image_path
         self._buf = None
         self.image: PILImage = None
