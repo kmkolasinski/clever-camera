@@ -17,7 +17,7 @@ content of the image and trigger snapshot for specified labels.
 ![img2](resources/screen2.png)
 
 
-# Installation and running camera server on Ubuntu/Linux
+# Installation and running camera server on Ubuntu/Linux (http://localhost:4000/)
 ```
 create env conda/virtualenv...
 source your_environment
@@ -26,7 +26,7 @@ pip install -r requirements.txt
 python app/app.py
 ```
 
-# Installation and running camera server on Raspberry Pi 
+# Installation and running camera server on Raspberry Pi (http://raspberrypi.local:4000/)
 
 In the project location run following commands:
 
