@@ -7,3 +7,6 @@ PyYAML==5.2
 remi>=2019.11
 requests==2.22.0
 tflite-runtime==1.14.0
+cached-property==1.5.1
+yagmail==0.11.224
+
