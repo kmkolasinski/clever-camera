@@ -85,7 +85,7 @@ class CameraWidget(SettingsWidget):
         self.add_text_field(USER, "Camera User name")
         self.add_text_field(PASSWORD, "Camera password")
         self.add_int_field(CHECK_PERIOD, "Check period [seconds]", default_value=5)
-        self.add_int_field(CAMERA_TIMEOUT, "Camera timeout seconds]", default_value=5)
+        self.add_int_field(CAMERA_TIMEOUT, "Camera timeout [seconds]", default_value=5)
 
         self.cam_preview_widget = PILImageWidget(Config.APP_INSTANCE)
         self.cam_preview_widget.load(Config.CAMERA_DEFAULT_IMAGE, use_js=False)
@@ -132,7 +132,9 @@ class CameraWidget(SettingsWidget):
         if roi_widget is None:
             tab_index = len(self.rois_tab_widget.tab_keys_ordered_list)
             if tab_index > 0:
-                tab_index = self.rois_tab_widget.tab_keys_ordered_list[-1].split("#")[-1]
+                tab_index = self.rois_tab_widget.tab_keys_ordered_list[-1].split("#")[
+                    -1
+                ]
 
             tab_index = int(tab_index) + 1
             roi_widget = ROIWidget(f"ROI #{tab_index}")
@@ -290,7 +292,7 @@ class CameraWidget(SettingsWidget):
         self.load_classifier()
 
     def _monitoring_process_fn(self):
-        sleepTime = float(self[CHECK_PERIOD].get_value())
+        sleep_time = float(self[CHECK_PERIOD].get_value())
         events_sequence = []
         while self.is_running:
             if len(events_sequence) > 0:
@@ -304,7 +306,7 @@ class CameraWidget(SettingsWidget):
 
             if not self.scheduler_widget.is_date_in_schedule():
                 self.run_monitoring_btn.set_icon(MONITORING_SLEEP_ICON)
-                sleep(sleepTime)
+                sleep(sleep_time)
                 continue
 
             self.run_monitoring_btn.set_icon(MONITORING_RUNNING_ICON)
@@ -314,9 +316,9 @@ class CameraWidget(SettingsWidget):
 
             if currentImage is None:
                 self.logger.warning(
-                    f"Image not found. Waiting for {sleepTime} seconds."
+                    f"Image not found. Waiting for {sleep_time} seconds."
                 )
-                sleep(sleepTime)
+                sleep(sleep_time)
                 continue
 
             rois_to_check = []
@@ -332,7 +334,7 @@ class CameraWidget(SettingsWidget):
 
             stop = time.time()
             if len(rois_to_check) == 0:
-                delta = max(sleepTime - float(stop - start), 0)
+                delta = max(sleep_time - float(stop - start), 0)
                 self.logger.info(f"Image not changed. Waiting {delta:.2f} seconds.")
                 self.camera_settings_changed()
                 sleep(delta)
@@ -361,7 +363,7 @@ class CameraWidget(SettingsWidget):
             if len(rois) > 0:
                 events_sequence.append(datetime.now())
 
-            delta = max(sleepTime - (time.time() - start), 0)
+            delta = max(sleep_time - (time.time() - start), 0)
             sleep(delta)
         self.run_monitoring_btn.set_icon(MONITORING_RUN_ICON)
 

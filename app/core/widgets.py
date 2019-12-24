@@ -357,7 +357,7 @@ class CenteredHBox(gui.HBox):
 
 
 class CustomFormWidget(gui.Container):
-    def __init__(self, *args):
+    def __init__(self, labels_min_width: str = "40%", *args):
         super(CustomFormWidget, self).__init__(*args)
         self.inputs = {}
         self.container = gui.Container()
@@ -365,7 +365,7 @@ class CustomFormWidget(gui.Container):
             {"display": "block", "overflow": "auto", "margin": "5px"}
         )
         self.css_margin = "5px"
-        self.css_labels_min_width = "40%"
+        self.css_labels_min_width = labels_min_width
         self.container.set_layout_orientation(gui.Container.LAYOUT_VERTICAL)
         self.append(self.container)
 
@@ -403,6 +403,10 @@ class CustomFormWidget(gui.Container):
         container.append(field, key=key)
         self.container.append(container, key=key)
         self.inputs[key] = field
+
+    def add_progress_bar(self, key: str, desc: str):
+        bar = gui.Progress(width="100%", height="30px")
+        self.add_field(key=key, desc=desc, field=bar)
 
     def add_text(self, key: str, desc: str, text: str = "", **kwargs):
         label = gui.TextInput(**kwargs)
@@ -469,17 +473,28 @@ class CustomFormWidget(gui.Container):
 
 
 class SettingsWidget(gui.Container):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self, title: str = None, labels_min_width: str = "40%", *args, **kwargs
+    ):
         super(SettingsWidget, self).__init__(*args, **kwargs)
-        self.settings = CustomFormWidget()
+        self.settings = CustomFormWidget(labels_min_width=labels_min_width)
         self.settings.add_class("border border-secondary rounded")
         self.settings.style["padding"] = "5px 5px"
+
+        if title is not None:
+            title_label = gui.Label(title)
+            title_label.css_font_weight = "1000"
+            title_label.style["padding"] = "5px"
+            self.append(title_label)
 
     def __getitem__(self, item: str):
         return self.settings.inputs[item]
 
     def add_text_field(self, *args, **kwargs):
         self.settings.add_text(*args, **kwargs)
+
+    def add_progress_bar(self, *args, **kwargs):
+        self.settings.add_progress_bar(*args, **kwargs)
 
     def add_password_field(self, *args, **kwargs):
         self.settings.add_password(*args, **kwargs)
@@ -766,7 +781,7 @@ class DroppableTabBox(gui.TabBox):
 
 class EmailNotifierWidget(SettingsWidget):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__("Gmail notification settings", *args, **kwargs)
         self.last_message_send: Optional[datetime] = None
         self.settings.css_labels_min_width = "60%"
 
@@ -774,12 +789,8 @@ class EmailNotifierWidget(SettingsWidget):
             "Disabled", style=css.DEFAULT_BUTTON_STYLE
         )
         self.send_email_btn = SButton("Send test mail", "fa-paper-plane")
-        self.last_message_send_label = gui.Label()
-        self.last_message_send_label.style["padding"] = "5px"
-        title_label = gui.Label("Gmail notification settings")
-        title_label.css_font_weight = "1000"
-        title_label.style["padding"] = "5px"
-        self.append(title_label)
+        self.last_message_send_lbl = gui.Label()
+        self.last_message_send_lbl.style["padding"] = "5px"
 
         self.add_text_field(
             "sender_email",
@@ -807,7 +818,7 @@ class EmailNotifierWidget(SettingsWidget):
             step=1,
         )
         self.settings.append(HorizontalLine())
-        self.settings.append(self.last_message_send_label)
+        self.settings.append(self.last_message_send_lbl)
         self.settings.append(HorizontalLine())
 
         layout = CenteredHBox()
@@ -825,7 +836,7 @@ class EmailNotifierWidget(SettingsWidget):
     def on_send_message(self, *args):
         return ()
 
-    def toggle_notifications(self, emitter, is_toggled: bool):
+    def toggle_notifications(self, emitter=None, is_toggled: bool = False):
         text = "Enabled" if is_toggled else "Disabled"
         self.enable_notifications_btn.set_text(text)
 
@@ -891,16 +902,16 @@ class EmailNotifierWidget(SettingsWidget):
                 self.receiver_email, subject, contents, attachments=attachments
             )
             if result is not False:
-                self.last_message_send_label.set_text(f"Message sent at: {date}")
+                self.last_message_send_lbl.set_text(f"Message sent at: {date}")
             else:
-                self.last_message_send_label.set_text(f"Cannot send message: {result}")
+                self.last_message_send_lbl.set_text(f"Cannot send message: {result}")
 
         except smtplib.SMTPAuthenticationError as e:
-            self.last_message_send_label.set_text(
+            self.last_message_send_lbl.set_text(
                 f"Cannot send message: {e.smtp_error.decode()}"
             )
         except Exception as e:
-            self.last_message_send_label.set_text(f"Cannot send message: {e}")
+            self.last_message_send_lbl.set_text(f"Cannot send message: {e}")
 
         self.last_message_send = date
         return True
@@ -913,3 +924,4 @@ class EmailNotifierWidget(SettingsWidget):
     def set_settings(self, settings: Dict[str, Any]) -> None:
         super().set_settings(settings)
         self.enable_notifications_btn.set_checked(settings["is_enabled"])
+        self.toggle_notifications(is_toggled=settings["is_enabled"])
