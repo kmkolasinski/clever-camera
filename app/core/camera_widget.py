@@ -294,6 +294,7 @@ class CameraWidget(SettingsWidget):
     def _monitoring_process_fn(self):
         sleep_time = float(self[CHECK_PERIOD].get_value())
         events_sequence = []
+        prev_image: Optional[PILImage] = None
         while self.is_running:
             if len(events_sequence) > 0:
                 dt = datetime.now() - events_sequence[-1]
@@ -311,10 +312,9 @@ class CameraWidget(SettingsWidget):
 
             self.run_monitoring_btn.set_icon(MONITORING_RUNNING_ICON)
             start = time.time()
-            prevImage = self.camera_client.get_latest_snapshot()
-            currentImage, msg = self.camera_client.get_snapshot()
+            current_image, msg = self.camera_client.get_async_snapshot()
 
-            if currentImage is None:
+            if current_image is None:
                 self.logger.warning(
                     f"Image not found. Waiting for {sleep_time} seconds."
                 )
@@ -323,15 +323,15 @@ class CameraWidget(SettingsWidget):
 
             rois_to_check = []
             rois_change_value = []
-            if prevImage is not None:
+            if prev_image is not None:
                 for roi in self.iter_rois_widgets(only_enabled=True):
-                    change = roi.compute_roi_image_change(prevImage, currentImage)
+                    change = roi.compute_roi_image_change(prev_image, current_image)
                     if change > MEAN_CHANGE_THRESHOLD:
                         rois_to_check.append(roi)
                         rois_change_value.append(change)
             else:
                 rois_to_check = list(self.iter_rois_widgets(only_enabled=True))
-
+            prev_image = current_image.copy()
             stop = time.time()
             if len(rois_to_check) == 0:
                 delta = max(sleep_time - float(stop - start), 0)
@@ -348,18 +348,18 @@ class CameraWidget(SettingsWidget):
             self.logger.info(f"Image changed in ROIs ({info}), doing predictions.")
 
             rois, predictions, delta = self.predict(
-                image=currentImage, rois=rois_to_check
+                image=current_image, rois=rois_to_check
             )
 
             self.logger.info(self.format_predictions(rois, predictions, delta))
             for roi, roi_pred, im_delta in zip(rois, predictions, rois_change_value):
                 self.check_and_update_history(
-                    image=currentImage,
+                    image=current_image,
                     roi=roi,
                     predictions=roi_pred,
                     image_change=im_delta,
                 )
-            self.camera_settings_changed(image=currentImage)
+            self.camera_settings_changed(image=current_image)
             if len(rois) > 0:
                 events_sequence.append(datetime.now())
 

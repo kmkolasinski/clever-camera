@@ -1,5 +1,7 @@
+import threading
 from abc import abstractmethod, ABC
 from io import BytesIO
+from time import sleep
 from typing import Optional, Tuple
 import requests
 from PIL import Image
@@ -46,6 +48,9 @@ class JPEGCameraClient(BaseCameraClient):
         super().__init__(user, password, url)
         self.timeout = timeout
         self.session = None
+        self.msg: Optional[str] = None
+        self.is_ok: bool = False
+        self.during_requesting_image: bool = False
         self._init_session()
 
     def is_valid(self) -> bool:
@@ -64,24 +69,55 @@ class JPEGCameraClient(BaseCameraClient):
         """
         Returns: current image camera frame
         """
+        self.during_requesting_image = True
         is_ok, msg = self.check_connection()
         if not is_ok:
+            self.is_ok = False
+            self.msg = msg
+            self.during_requesting_image = False
             return None, msg
 
         try:
             response = self.session.get(self.url, timeout=self.timeout)
             if not response.ok:
-                return None, f"Bad response: {response}. Check url."
+                msg = f"Bad response: {response}. Check url."
+                self.is_ok = False
+                self.msg = msg
+                self.during_requesting_image = False
+                return None, msg
             image_bytes = BytesIO()
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     image_bytes.write(chunk)
             image = Image.open(image_bytes)
         except Exception as error:
-            return None, f"Cannot get image bytes: {error}"
+            msg = f"Cannot get image bytes: {error}"
 
+            self.is_ok = False
+            self.msg = msg
+            self.during_requesting_image = False
+            return None, msg
+
+        msg = "Camera is OK!"
+        self.is_ok = True
+        self.msg = msg
+        self.during_requesting_image = False
         self.image = image.copy()
-        return image, "Camera is OK!"
+        return image, msg
+
+    def get_async_snapshot(self) -> Tuple[Optional[Image.Image], str]:
+        """
+        Returns: current image camera frame and run background thread
+            to download new one
+        """
+        while self.during_requesting_image:
+            # wait for the last request to finish
+            sleep(0.01)
+        cameraThread = threading.Thread(target=self.get_snapshot)
+        cameraThread.start()
+        if self.is_ok:
+            return self.image, self.msg
+        return None, self.msg
 
 
 def get_camera_client(
