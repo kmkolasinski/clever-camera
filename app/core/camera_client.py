@@ -111,7 +111,8 @@ class JPEGCameraClient(BaseCameraClient):
             to download new one
         """
         while self.during_requesting_image:
-            # wait for the last request to finish
+            # wait for the last request to finish, simple single
+            # element queue implementation
             sleep(0.01)
         cameraThread = threading.Thread(target=self.get_snapshot)
         cameraThread.start()

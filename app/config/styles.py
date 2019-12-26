@@ -9,6 +9,8 @@ HTML_HEAD = """
     <script src="/static:js/jquery/jquery-3.4.1.slim.js"></script>
     <script src = "/static:js/popper/popper.min.js"></script>
     <script src="/static:css/bootstrap4/js/bootstrap.min.js"></script>
+    
+    <script src = "/static:js/app/download_image.js"></script>
     """
 
 APP_TABS_CSS = {"margin": "5px auto", "box-shadow": "0px 0px 3px 3px lightgray"}

@@ -36,7 +36,7 @@ class CleverCameraApp(App):
         tabs.add_tab(self.history, "Events history")
         tabs.add_tab(self.settings, "Settings")
         tabs.add_tab(self.resources, "System")
-        tabs.select_by_index(1)
+        tabs.select_by_index(0)
         return tabs
 
 

@@ -165,8 +165,8 @@ class CameraWidget(SettingsWidget):
             return False
 
         self.is_running = True
-        cameraThread = threading.Thread(target=self._monitoring_process_fn)
-        cameraThread.start()
+        monitoring_thread = threading.Thread(target=self._monitoring_process_fn)
+        monitoring_thread.start()
 
     def stop_monitoring(self, emitter=None):
         self.logger.info("Monitoring stopped!")

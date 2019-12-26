@@ -1,5 +1,7 @@
+import base64
 import json
 import os
+import threading
 import zipfile
 from collections import Counter
 from datetime import datetime, timedelta
@@ -73,19 +75,15 @@ class HistoryEventWidget(gui.Container):
         return widget
 
     def on_download_image(self, emitter):
-        Config.APP_INSTANCE.execute_javascript(
-            f'window.location = "/{id(self)}/direct_download"'
-        )
+        with open(self.image_path, "rb") as f:
+            image_bytes = base64.b64encode(f.read()).decode()
+        filename = Path(self.image_path).name
 
-    def direct_download(self):
-        with open(self.image_path, "r+b") as f:
-            content = f.read()
-            headers = {
-                "Content-type": "image/jpeg",
-                "Content-Disposition": 'attachment; filename="%s"'
-                % os.path.basename(self.image_path),
-            }
-            return [content, headers]
+        Config.APP_INSTANCE.execute_javascript(
+            f"""
+            downloadImage(imageBytes="{image_bytes}", filename="{filename}")
+            """
+        )
 
     def is_selected(self) -> bool:
         return self.select_checkbox.get_value()
@@ -186,7 +184,7 @@ class HistoryWidget(gui.Container):
         self.append(HorizontalLine())
 
         # signals:
-        self.search_history_btn.onclick.do(self.update_events_history_list)
+        self.search_history_btn.onclick.do(self.update_events_history_list_thread)
         self.set_prev_day_btn.onclick.do(self.shift_search_dates, delta=-1)
         self.set_next_day_btn.onclick.do(self.shift_search_dates, delta=1)
         self.set_today_btn.onclick.do(self.set_today_date)
@@ -208,7 +206,12 @@ class HistoryWidget(gui.Container):
 
         return widgets, labels, True
 
+    def update_events_history_list_thread(self, emitter=None):
+        self.search_history_btn.set_icon("fa-spin fa-search")
+        threading.Thread(target=self.update_events_history_list).start()
+
     def update_events_history_list(self, emitter=None):
+
         self.events_hist_list.empty()
         self.unique_labels_list.empty()
         self.unique_rois_list.empty()
@@ -235,6 +238,7 @@ class HistoryWidget(gui.Container):
             self.unique_rois_list.append(label_btn)
 
         self.hourly_hist_widget.update_from_dates([w.event_date for w in widgets])
+        self.search_history_btn.set_icon("fa-search")
 
     def reset_filters(self, emitter=None):
         for btn in self.unique_rois_list.children.values():

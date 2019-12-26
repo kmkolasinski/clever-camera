@@ -94,8 +94,8 @@ class AppSettingsWidget(gui.Container):
                 do_checks=True,
             )
 
-        cameraThread = threading.Thread(target=send_email_thread_fn)
-        cameraThread.start()
+        send_email_thread = threading.Thread(target=send_email_thread_fn)
+        send_email_thread.start()
 
     def save_settings(self, emitter=None):
         """
