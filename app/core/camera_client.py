@@ -1,4 +1,5 @@
 import threading
+import time
 from abc import abstractmethod, ABC
 from io import BytesIO
 from time import sleep
@@ -69,6 +70,7 @@ class JPEGCameraClient(BaseCameraClient):
         """
         Returns: current image camera frame
         """
+        start = time.time()
         self.during_requesting_image = True
         is_ok, msg = self.check_connection()
         if not is_ok:
@@ -98,7 +100,8 @@ class JPEGCameraClient(BaseCameraClient):
             self.during_requesting_image = False
             return None, msg
 
-        msg = "Camera is OK!"
+        dt = time.time() - start
+        msg = f"Camera is OK! Captured image of size {image.size} in {dt:.2} seconds."
         self.is_ok = True
         self.msg = msg
         self.during_requesting_image = False
