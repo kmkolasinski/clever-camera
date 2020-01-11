@@ -55,6 +55,6 @@ class SystemResourcesWidget(gui.VBox):
     def update(self):
         delta = datetime.now() - self.last_update
         if delta.total_seconds() > UPDATE_FREQUENCY_SEC:
-            cameraThread = threading.Thread(target=self.update_thread_fn)
-            cameraThread.start()
+            update_thread = threading.Thread(target=self.update_thread_fn)
+            update_thread.start()
             self.last_update = datetime.now()
