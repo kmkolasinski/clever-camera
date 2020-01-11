@@ -1,7 +1,20 @@
 # clever-camera
 
-Simple security camera which uses deep learning model to predict the 
-content of the image and trigger snapshot for specified labels. 
+A simple monitoring camera web server which uses deep learning model 
+(classification) to filter or group camera events. 
+
+# Basic workflow
+
+    1. Setup IP camera credentials, then click "Refresh camera" to check connection.
+    2. Select model from the Model name list, then click "Test classifier" to check predictions
+    3. Select one or more ROIs
+    4. Run/Stop monitoring. Monitoring loop will execute following steps:
+       a) Get camera image
+       b) Compare the pixels for possible change inside defined ROIs (naive motion detection)
+       c) If no changes detected then wait "Check period" and goto a)
+       d) Otherwise, trigger classifier for image fragments inside ROIs and get predicted "labels"
+       e) If classifer returned labels which match the "ROI Labels" save snaphot on disk
+       f) Goto a)  
 
 # Features
 
