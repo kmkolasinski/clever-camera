@@ -9,6 +9,9 @@ import os
 DAY_FORMAT = "%Y-%m-%d"
 HOUR_FORMAT = "%H:%M:%S"
 DATE_FORMAT = f"{DAY_FORMAT} {HOUR_FORMAT}"
+# the number of seconds between to events to be
+# considered as two different events
+EVENTS_SEQUENCE_SEPARATION = 5
 
 
 class Config:

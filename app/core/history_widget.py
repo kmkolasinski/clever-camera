@@ -13,7 +13,8 @@ from PIL import Image
 from remi import gui
 
 import config.styles as css
-from config.config import Config, DAY_FORMAT, HOUR_FORMAT, DATE_FORMAT
+from config.config import Config, DAY_FORMAT, HOUR_FORMAT, DATE_FORMAT, \
+    EVENTS_SEQUENCE_SEPARATION
 from core.widgets import (
     PILImage,
     StaticPILImageWidget,
@@ -142,12 +143,15 @@ class HistoryWidget(gui.Container):
         self.deselect_all_btn = SButton("Deselect All", "fa-square", btn_class)
         self.reset_filters_btn = SButton("Reset", "fa-undo-alt", btn_class)
         self.apply_filters_btn = SButton("Filter", "fa-filter", btn_class)
+        self.show_only_unique_events_btn = ToggleButton("Enable/Disable", style=btn_css)
+        self.show_only_unique_events_btn.css_width = "100%"
 
         search_form = CustomFormWidget()
         search_form.css_width = "70%"
         search_form.add_field("from_day", "Search from", self.search_from_date_widget)
         search_form.add_field("to_day", "Search to", self.search_to_date_widget)
         search_form.add_field("by_label", "Filter by label", self.filter_by_label_input)
+        search_form.add_field("only_unique", "Show only unique events", self.show_only_unique_events_btn)
 
         hbox = gui.HBox()
         hbox.css_display = "block"
@@ -199,6 +203,7 @@ class HistoryWidget(gui.Container):
             start_date=self.search_from_date_widget.get_value(),
             end_date=self.search_to_date_widget.get_value(),
             labels_filter=self.filter_by_label_input.get_text(),
+            only_unique_events=self.show_only_unique_events_btn.is_toggled,
         )
         if widgets is None:
             self.search_info_lbl.set_text(f"Error: {msg}")
@@ -335,7 +340,7 @@ class HistoryWidget(gui.Container):
         images_to_pack = []
         for name, widget in self.events_hist_list.children.items():
             if type(widget) == HistoryEventWidget and widget.is_selected():
-                images_to_pack.append(widget.imagePath)
+                images_to_pack.append(widget.image_path)
         return images_to_pack
 
     def select_all_images(self, emitter=None) -> None:
@@ -351,7 +356,6 @@ class HistoryWidget(gui.Container):
     def on_download_images(self, emitter):
         if not self.selected_images():
             return
-
         Config.APP_INSTANCE.execute_javascript(
             f'window.location = "/{id(self)}/direct_download_selected"'
         )
@@ -431,6 +435,7 @@ def load_history_widgets(
     start_date: Union[str, datetime],
     end_date: Union[str, datetime],
     labels_filter: str,
+    only_unique_events: bool,
     max_days: int = 30,
 ) -> Tuple[Optional[List[HistoryEventWidget]], List[str], str]:
 
@@ -469,7 +474,23 @@ def load_history_widgets(
                 labels += event_labels
         search_day += add_one_day
 
-    return widgets[::-1], labels, ""
+    # reverse events from most recent to older
+    event_widgets = widgets[::-1]
+
+    if only_unique_events:
+        # return these events which are separated by more then
+        # 5 seconds
+        new_event_widgets = []
+        last_date = datetime.now()
+        for event in event_widgets:
+            dt = last_date - event.event_date
+            if dt.total_seconds() > EVENTS_SEQUENCE_SEPARATION:
+                new_event_widgets.append(event)
+            last_date = event.event_date
+
+        event_widgets = new_event_widgets
+
+    return event_widgets, labels, ""
 
 
 def load_day_history(date: Union[str, datetime]) -> Optional[List[Dict[str, Any]]]:

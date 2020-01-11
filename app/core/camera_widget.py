@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, Tuple, List, Iterator
 import remi.gui as gui
 from PIL import Image
 
-from config.config import Config
+from config.config import Config, EVENTS_SEQUENCE_SEPARATION
 from core.base_predictor import ClassificationOutput
 from core.camera_client import get_camera_client, BaseCameraClient
 from core.widgets import (
@@ -31,13 +31,11 @@ USER = "user"
 PASSWORD = "password"
 CHECK_PERIOD = "check_period"
 CAMERA_TIMEOUT = "timeout"
+MAX_SEQUENCE_LENGTH = "max_sequence_length"
 MONITORING_RUN_ICON = "fa-play-circle"
 MONITORING_RUNNING_ICON = "fa-play-circle fa-spin"
 MONITORING_SLEEP_ICON = "fa-bed fa-spin"
 MEAN_CHANGE_THRESHOLD = 0.01
-# the number of seconds between to events to be
-# considered as two different events
-EVENTS_SEQUENCE_SEPARATION = 5
 
 
 class CameraWidget(SettingsWidget):
@@ -86,6 +84,7 @@ class CameraWidget(SettingsWidget):
         self.add_text_field(PASSWORD, "Camera password")
         self.add_int_field(CHECK_PERIOD, "Check period [seconds]", default_value=5)
         self.add_int_field(CAMERA_TIMEOUT, "Camera timeout [seconds]", default_value=5)
+        self.add_int_field(MAX_SEQUENCE_LENGTH, "Events sequence maximum length [seconds]", default_value=10)
 
         self.cam_preview_widget = PILImageWidget(Config.APP_INSTANCE)
         self.cam_preview_widget.load(Config.CAMERA_DEFAULT_IMAGE, use_js=False)
@@ -226,7 +225,7 @@ class CameraWidget(SettingsWidget):
         rois: List[ROIWidget],
         predictions: List[ClassificationOutput],
         timedelta: float,
-    ):
+    ) -> str:
         predictions = [f"{r.name}: [{p}]" for r, p in zip(rois, predictions)]
         return f"Predicted in {timedelta:.2f} seconds: {predictions}"
 
@@ -293,12 +292,17 @@ class CameraWidget(SettingsWidget):
 
     def _monitoring_process_fn(self):
         sleep_time = float(self[CHECK_PERIOD].get_value())
+        seq_max_length = float(self[MAX_SEQUENCE_LENGTH].get_value())
         events_sequence = []
         prev_image: Optional[PILImage] = None
         while self.is_running:
             if len(events_sequence) > 0:
                 dt = datetime.now() - events_sequence[-1]
-                if dt.total_seconds() > EVENTS_SEQUENCE_SEPARATION:
+                seq_length = datetime.now() - events_sequence[0]
+                event_finished = dt.total_seconds() > EVENTS_SEQUENCE_SEPARATION
+                sequence_is_too_long = seq_length.total_seconds() > seq_max_length
+
+                if event_finished or sequence_is_too_long:
                     self.logger.info(
                         f"Sequence of size {len(events_sequence)} finished"
                     )
