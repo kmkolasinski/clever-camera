@@ -3,6 +3,8 @@ from datetime import datetime
 import psutil
 import remi.gui as gui
 import core.widgets as wg
+import multiprocessing
+import os
 
 LABEL_WIDTH = "15%"
 UPDATE_FREQUENCY_SEC = 30
@@ -11,9 +13,10 @@ UPDATE_FREQUENCY_SEC = 30
 class SystemResourcesWidget(gui.VBox):
     def __init__(self, *args, **kwargs):
         super(SystemResourcesWidget, self).__init__(*args, **kwargs)
-
+        self.tunnel_thread = None
         self.last_update = datetime.now()
         self.refresh_btn = wg.SButton("Refresh", "fa-sync-alt", "btn-primary")
+        self.open_tunnel_btn = wg.SButton("Open tunnel", "fa-wifi", "btn-primary")
 
         self.others = wg.SettingsWidget("Other parameters", LABEL_WIDTH)
         self.others.add_text_field(f"boot_time", f"Boot time")
@@ -36,8 +39,10 @@ class SystemResourcesWidget(gui.VBox):
         self.append(self.disk_usage)
         self.append(self.disk_usage.settings)
         self.append(self.refresh_btn)
+        self.append(self.open_tunnel_btn)
 
         self.refresh_btn.onclick.do(self.update_thread_fn)
+        self.open_tunnel_btn.onclick.do(self.open_ssh_tunnel)
 
     def update_thread_fn(self, emitter=None):
         cpu_usage = psutil.cpu_percent(interval=1, percpu=True)
@@ -55,6 +60,19 @@ class SystemResourcesWidget(gui.VBox):
     def update(self):
         delta = datetime.now() - self.last_update
         if delta.total_seconds() > UPDATE_FREQUENCY_SEC:
-            cameraThread = threading.Thread(target=self.update_thread_fn)
-            cameraThread.start()
+            camera_thread = threading.Thread(target=self.update_thread_fn)
+            camera_thread.start()
             self.last_update = datetime.now()
+
+    def open_ssh_tunnel(self, emitter = None):
+        if self.tunnel_thread is not None:
+            return False
+        
+        def thread_fn():
+            cmd = "ngrok tcp 22"
+            os.system(cmd)
+        
+        print("Starting tunnel ... ")
+        self.tunnel_thread = multiprocessing.Process(target=thread_fn)
+        self.tunnel_thread.start()
+            

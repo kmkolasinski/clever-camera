@@ -31,6 +31,7 @@ USER = "user"
 PASSWORD = "password"
 CHECK_PERIOD = "check_period"
 CAMERA_TIMEOUT = "timeout"
+AUTO_START = "auto_start"
 MONITORING_RUN_ICON = "fa-play-circle"
 MONITORING_RUNNING_ICON = "fa-play-circle fa-spin"
 MONITORING_SLEEP_ICON = "fa-bed fa-spin"
@@ -86,6 +87,7 @@ class CameraWidget(SettingsWidget):
         self.add_text_field(PASSWORD, "Camera password")
         self.add_int_field(CHECK_PERIOD, "Check period [seconds]", default_value=5)
         self.add_int_field(CAMERA_TIMEOUT, "Camera timeout [seconds]", default_value=5)
+        self.add_checkbox_field(AUTO_START, "Auto start monitoring?")
 
         self.cam_preview_widget = PILImageWidget(Config.APP_INSTANCE)
         self.cam_preview_widget.load(Config.CAMERA_DEFAULT_IMAGE, use_js=False)
@@ -109,7 +111,7 @@ class CameraWidget(SettingsWidget):
         self.check_predictor_btn.onclick.do(self.test_predictor)
         self.run_monitoring_btn.onclick.do(self.start_monitoring)
         self.stop_monitoring_btn.onclick.do(self.stop_monitoring)
-
+    
     @property
     def latest_camera_snapshot(self) -> PILImage:
         snapshot = None
@@ -119,6 +121,10 @@ class CameraWidget(SettingsWidget):
         if snapshot is None:
             snapshot = self.placeholder_cam_image
         return snapshot
+    
+    @property
+    def is_auto_start_enabled(self):
+        return self[AUTO_START].get_value()
 
     @gui.decorate_set_on_listener("(self, emitter)")
     @gui.decorate_event
@@ -198,7 +204,7 @@ class CameraWidget(SettingsWidget):
             return False
 
         if self.camera_client is None:
-            self.logger.error("Camera client not loaded! Click 'Check Camera' button.")
+            self.logger.error("Camera client not loaded! Click 'Refresh Camera' button.")
             return False
         return True
 
