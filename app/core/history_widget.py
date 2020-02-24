@@ -335,7 +335,7 @@ class HistoryWidget(gui.Container):
         images_to_pack = []
         for name, widget in self.events_hist_list.children.items():
             if type(widget) == HistoryEventWidget and widget.is_selected():
-                images_to_pack.append(widget.imagePath)
+                images_to_pack.append(widget.image_path)
         return images_to_pack
 
     def select_all_images(self, emitter=None) -> None:

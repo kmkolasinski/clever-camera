@@ -13,10 +13,12 @@ UPDATE_FREQUENCY_SEC = 30
 class SystemResourcesWidget(gui.VBox):
     def __init__(self, *args, **kwargs):
         super(SystemResourcesWidget, self).__init__(*args, **kwargs)
-        self.tunnel_thread = None
+        self.ssh_tunnel_thread = None
+        self.http_tunnel_thread = None
         self.last_update = datetime.now()
         self.refresh_btn = wg.SButton("Refresh", "fa-sync-alt", "btn-primary")
-        self.open_tunnel_btn = wg.SButton("Open tunnel", "fa-wifi", "btn-primary")
+        self.open_ssh_tunnel_btn = wg.SButton("Open SSH tunnel", "fa-wifi", "btn-primary")
+        self.open_http_tunnel_btn = wg.SButton("Open HTTP tunnel", "fa-wifi", "btn-primary")
 
         self.others = wg.SettingsWidget("Other parameters", LABEL_WIDTH)
         self.others.add_text_field(f"boot_time", f"Boot time")
@@ -39,10 +41,12 @@ class SystemResourcesWidget(gui.VBox):
         self.append(self.disk_usage)
         self.append(self.disk_usage.settings)
         self.append(self.refresh_btn)
-        self.append(self.open_tunnel_btn)
+        self.append(self.open_ssh_tunnel_btn)
+        self.append(self.open_http_tunnel_btn)
 
         self.refresh_btn.onclick.do(self.update_thread_fn)
-        self.open_tunnel_btn.onclick.do(self.open_ssh_tunnel)
+        self.open_ssh_tunnel_btn.onclick.do(self.open_ssh_tunnel)
+        self.open_http_tunnel_btn.onclick.do(self.open_http_tunnel)
 
     def update_thread_fn(self, emitter=None):
         cpu_usage = psutil.cpu_percent(interval=1, percpu=True)
@@ -64,15 +68,26 @@ class SystemResourcesWidget(gui.VBox):
             camera_thread.start()
             self.last_update = datetime.now()
 
-    def open_ssh_tunnel(self, emitter = None):
-        if self.tunnel_thread is not None:
+    def open_ssh_tunnel(self, emitter=None):
+        if self.ssh_tunnel_thread is not None:
             return False
-        
+
         def thread_fn():
             cmd = "ngrok tcp 22"
             os.system(cmd)
-        
-        print("Starting tunnel ... ")
-        self.tunnel_thread = multiprocessing.Process(target=thread_fn)
-        self.tunnel_thread.start()
-            
+
+        print("Starting ssh tunnel ... ")
+        self.ssh_tunnel_thread = multiprocessing.Process(target=thread_fn)
+        self.ssh_tunnel_thread.start()
+
+    def open_http_tunnel(self, emitter=None):
+        if self.http_tunnel_thread is not None:
+            return False
+
+        def thread_fn():
+            cmd = "ngrok http 22"
+            os.system(cmd)
+
+        print("Starting http tunnel ... ")
+        self.http_tunnel_thread = multiprocessing.Process(target=thread_fn)
+        self.http_tunnel_thread.start()

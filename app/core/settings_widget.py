@@ -39,8 +39,8 @@ class AppSettingsWidget(gui.Container):
         self.save_btn.onclick.do(self.save_settings)
         self.email_notifier_widget.on_send_message.do(self.send_test_notification)
         self.camera_widget.on_events_sequence_finished.do(self.maybe_send_notification)
-        
-        # autostarting camera thread        
+
+        # autostarting camera thread
         if self.camera_widget.is_auto_start_enabled:
             print("Camera auto start enabled, starting monitoring ...")
             self.camera_widget.reload_camera_connection()

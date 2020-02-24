@@ -2,12 +2,14 @@ import threading
 import time
 from abc import abstractmethod, ABC
 from io import BytesIO
+from pathlib import Path
 from time import sleep
 from typing import Optional, Tuple
 import requests
 from PIL import Image
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from core.widgets import PILImage
+import cv2
 
 
 class BaseCameraClient(ABC):
@@ -42,6 +44,14 @@ class BaseCameraClient(ABC):
         if self.image is not None:
             return self.image.copy()
         return None
+
+    @abstractmethod
+    def get_async_snapshot(self) -> Tuple[Optional[Image.Image], str]:
+        """
+        Returns: current image camera frame and run background thread
+            to download new one
+        """
+        pass
 
 
 class JPEGCameraClient(BaseCameraClient):
@@ -124,7 +134,109 @@ class JPEGCameraClient(BaseCameraClient):
         return None, self.msg
 
 
+class LocalVideoClient(BaseCameraClient):
+    """Camera client used for debugging. It mocks JPEGCameraClient
+    by reading local file.
+    Example usage:
+
+    client = LocalVideoClient(url="path/to/video.mp4?skip=10")
+
+    Optional arguments:
+        skip - a number of frames to skip between two get_snapshot()
+            calls. By default every frame is used.
+
+    """
+
+    def __init__(self, url: str):
+        super().__init__(user="", password="", url=url)
+        self.cap = None
+        if self.is_valid():
+            path, params, msg = self.split_url()
+            self.cap = cv2.VideoCapture(str(path))
+            self.params = params
+        else:
+            self.cap = None
+            self.params = {}
+        self.during_requesting_image = False
+
+    def split_url(self):
+        try:
+            if "?" not in self.url:
+                params = ""
+                path = self.url
+            else:
+                path, params = self.url.split("?")
+            if params != "":
+                params = {p.split("=")[0]: p.split("=")[1] for p in params.split("&")}
+            else:
+                params = {}
+            path = Path(path)
+            msg = ""
+        except Exception as e:
+            path = None
+            params = {}
+            msg = f"Invalid video path: {e}"
+        return path, params, msg
+
+    def is_valid(self) -> Tuple[bool, str]:
+        path, params, msg = self.split_url()
+        path_check = path is not None and path.exists()
+        if not path_check:
+            return False, msg
+        if self.cap is not None:
+            if not self.cap.isOpened():
+                return False, "Video ended"
+        return True, "Ok"
+
+    def get_snapshot(self) -> Tuple[Optional[Image.Image], str]:
+        """
+        Returns: current image camera frame
+        """
+        self.during_requesting_image = True
+        is_ok, msg = self.is_valid()
+        if not is_ok:
+            self.is_ok = False
+            self.during_requesting_image = False
+            return None, msg
+
+        for _ in range(int(self.params.get("skip", 1))):
+            status, image = self.cap.read()
+            if not status:
+                self.is_ok = False
+                self.during_requesting_image = False
+                return None, "End"
+
+        image = Image.fromarray(image[:, :, (2, 1, 0)])
+        self.during_requesting_image = False
+        self.image = image.copy()
+        self.msg = "Frame captured"
+        self.is_ok = True
+        return image, self.msg
+
+    def get_async_snapshot(self) -> Tuple[Optional[Image.Image], str]:
+        """
+        Returns: current image camera frame and run background thread
+            to download new one
+        """
+        while self.during_requesting_image:
+            # wait for the last request to finish, simple single
+            # element queue implementation
+            sleep(0.01)
+        cameraThread = threading.Thread(target=self.get_snapshot)
+        cameraThread.start()
+        if self.is_ok:
+            return self.image, self.msg
+        return None, self.msg
+
+
 def get_camera_client(
     user: str, password: str, url: str, timeout: int
-) -> JPEGCameraClient:
-    return JPEGCameraClient(user=user, password=password, url=url, timeout=timeout)
+) -> BaseCameraClient:
+
+    if url.startswith("file:"):
+        return LocalVideoClient(url=url.replace("file:", ""))
+
+    return JPEGCameraClient(
+        user=user, password=password,
+        url=url, timeout=timeout
+    )

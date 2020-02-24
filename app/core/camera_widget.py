@@ -1,6 +1,7 @@
 import threading
 import time
 from datetime import datetime
+from importlib.machinery import SourceFileLoader
 from time import sleep
 from typing import Optional, Dict, Any, Tuple, List, Iterator
 
@@ -8,8 +9,9 @@ import remi.gui as gui
 from PIL import Image
 
 from config.config import Config
-from core.base_predictor import ClassificationOutput
+from core.base_predictor import ClassificationOutput, ClassifierPredictor
 from core.camera_client import get_camera_client, BaseCameraClient
+from core.history_widget import append_snapshots_history
 from core.widgets import (
     PILImage,
     PILImageWidget,
@@ -21,11 +23,10 @@ from core.widgets import (
     SButton,
     MonitoringScheduleWidget,
 )
-from core.history_widget import append_snapshots_history
-from core.tflite_classifier_predictor import TFClassifierPredictor
 
 NAME = "camera_name"
 MODEL_NAME = "model_name"
+ROI_CHANGE_THRESHOLD = "roi_change_threshold"
 URL = "url"
 USER = "user"
 PASSWORD = "password"
@@ -35,7 +36,6 @@ AUTO_START = "auto_start"
 MONITORING_RUN_ICON = "fa-play-circle"
 MONITORING_RUNNING_ICON = "fa-play-circle fa-spin"
 MONITORING_SLEEP_ICON = "fa-bed fa-spin"
-MEAN_CHANGE_THRESHOLD = 0.01
 # the number of seconds between to events to be
 # considered as two different events
 EVENTS_SEQUENCE_SEPARATION = 5
@@ -45,7 +45,7 @@ class CameraWidget(SettingsWidget):
     def __init__(self, *args, **kwargs):
         super(CameraWidget, self).__init__(*args, **kwargs)
         self.camera_client: Optional[BaseCameraClient] = None
-        self.predictor: Optional[TFClassifierPredictor] = None
+        self.predictor: Optional[ClassifierPredictor] = None
         self.placeholder_cam_image = Image.open(Config.CAMERA_DEFAULT_IMAGE)
         self.is_running = False
         self.reload_cam_btn = SButton("Refresh Camera", "fa-camera-retro")
@@ -82,6 +82,7 @@ class CameraWidget(SettingsWidget):
         self.add_text_field(NAME, "Custom name of the camera", "Home")
         self.settings.add_field("schedule", "Schedule", self.scheduler_widget)
         self.add_choice_field(MODEL_NAME, "Model Name", Config.list_models())
+        self.add_int_field(ROI_CHANGE_THRESHOLD, "ROI change threshold [%]", default_value=30)
         self.add_text_field(URL, "Camera JPEG URL endpoint")
         self.add_text_field(USER, "Camera User name")
         self.add_text_field(PASSWORD, "Camera password")
@@ -111,7 +112,7 @@ class CameraWidget(SettingsWidget):
         self.check_predictor_btn.onclick.do(self.test_predictor)
         self.run_monitoring_btn.onclick.do(self.start_monitoring)
         self.stop_monitoring_btn.onclick.do(self.stop_monitoring)
-    
+
     @property
     def latest_camera_snapshot(self) -> PILImage:
         snapshot = None
@@ -121,10 +122,14 @@ class CameraWidget(SettingsWidget):
         if snapshot is None:
             snapshot = self.placeholder_cam_image
         return snapshot
-    
+
     @property
     def is_auto_start_enabled(self):
         return self[AUTO_START].get_value()
+
+    @property
+    def roi_change_threshold(self) -> float:
+        return int(self[ROI_CHANGE_THRESHOLD].get_value()) / 100.0
 
     @gui.decorate_set_on_listener("(self, emitter)")
     @gui.decorate_event
@@ -204,7 +209,9 @@ class CameraWidget(SettingsWidget):
             return False
 
         if self.camera_client is None:
-            self.logger.error("Camera client not loaded! Click 'Refresh Camera' button.")
+            self.logger.error(
+                "Camera client not loaded! Click 'Refresh Camera' button."
+            )
             return False
         return True
 
@@ -273,10 +280,14 @@ class CameraWidget(SettingsWidget):
 
     def load_classifier(self):
         model_path = Config.MODELS_DIR / self[MODEL_NAME].get_value()
+        model_path = model_path / "model.py"
         self.predictor = None
         if model_path.exists():
             try:
-                self.predictor = TFClassifierPredictor.load(model_path)
+                model_module = SourceFileLoader(
+                    "model", str(model_path)
+                ).load_module()
+                self.predictor: ClassifierPredictor = model_module.get()
             except Exception as e:
                 self.logger.error(f"Cannot load classifier: {e}")
         else:
@@ -332,7 +343,7 @@ class CameraWidget(SettingsWidget):
             if prev_image is not None:
                 for roi in self.iter_rois_widgets(only_enabled=True):
                     change = roi.compute_roi_image_change(prev_image, current_image)
-                    if change > MEAN_CHANGE_THRESHOLD:
+                    if change > self.roi_change_threshold:
                         rois_to_check.append(roi)
                         rois_change_value.append(change)
             else:
