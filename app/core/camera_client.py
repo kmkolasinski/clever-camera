@@ -9,7 +9,7 @@ import requests
 from PIL import Image
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from core.widgets import PILImage
-import cv2
+#import cv2
 
 
 class BaseCameraClient(ABC):

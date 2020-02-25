@@ -9,4 +9,4 @@ tflite-runtime==1.14.0
 cached-property==1.5.1
 yagmail==0.11.224
 psutil==5.6.7
-opencv-python==4.1.2.30
+opencv-python==4.1.1.26

@@ -301,7 +301,6 @@ class LoggerWidget(gui.ListView):
         self.set_style(css.LOGGER_STYLE)
 
     def update_history(self, label: gui.Label):
-        print(label.get_text())
         self.history = self.history[-self.history_size :]
         self.history.append(label)
         self.empty()
