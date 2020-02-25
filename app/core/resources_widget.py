@@ -85,7 +85,7 @@ class SystemResourcesWidget(gui.VBox):
             return False
 
         def thread_fn():
-            cmd = "ngrok http 22"
+            cmd = "ngrok http 80"
             os.system(cmd)
 
         print("Starting http tunnel ... ")
