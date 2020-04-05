@@ -7,7 +7,7 @@ import os
 
 
 DAY_FORMAT = "%Y-%m-%d"
-HOUR_FORMAT = "%H:%M:%S"
+HOUR_FORMAT = "%H-%M-%S"
 DATE_FORMAT = f"{DAY_FORMAT} {HOUR_FORMAT}"
 
 
