@@ -2,7 +2,7 @@ natsort==6.2.0
 numpy==1.17.4
 Pillow==6.2.1
 pyparsing==2.3.0
-PyYAML==5.2
+PyYAML==5.4
 remi>=2019.11
 requests==2.22.0
 tflite-runtime==1.14.0
