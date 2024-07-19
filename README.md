@@ -19,16 +19,16 @@ content of the image and trigger snapshot for specified labels.
 
 # Installation and running camera server on Ubuntu/Linux (http://localhost:4000/)
 ```
-create env conda/virtualenv...
+create env conda/virtualenv... e.g.  conda create -n py3.11 python=3.11 -y
 source your_environment
-pip install https://dl.google.com/coral/python/tflite_runtime-1.14.0-cp36-cp36m-linux_x86_64.whl
 pip install -r requirements.txt
-python app/app.py
+bash run.sh
 ```
 
 # Installation and running camera server on Raspberry Pi (http://raspberrypi.local:4000/)
 
-In the project location run following commands:
+In the project location run following commands: 
+DEPRECATED should be python 3.11 env
 
 ```bash
 python3 -m pip install --user virtualenv
